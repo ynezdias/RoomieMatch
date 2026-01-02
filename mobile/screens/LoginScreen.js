@@ -1,29 +1,48 @@
-import { View, Text, TextInput, Button } from 'react-native';
-import API from '../services/api';
-import { useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-
-  const login = async () => {
-    const res = await API.post('/auth/login', { email, password });
-    console.log(res.data);
-  };
-
   return (
-    <View>
-      <Text>Login</Text>
-      <TextInput placeholder="Email" onChangeText={setEmail} />
-      <TextInput placeholder="Password" secureTextEntry onChangeText={setPassword} />
-      <Button title="Login" onPress={login} />
+    <View style={styles.container}>
+      <Text style={styles.title}>RoomieMatch</Text>
+
+      <TextInput placeholder="Email" style={styles.input} />
+      <TextInput placeholder="Password" secureTextEntry style={styles.input} />
+
+      <TouchableOpacity style={styles.button}>
+        <Text style={styles.buttonText}>Login</Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
-const login = async () => {
-  const res = await API.post('/auth/login', { email, password });
-  await AsyncStorage.setItem('token', res.data.token);
-};
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#ffffff', // ✅ WHITE
+    justifyContent: 'center',
+    padding: 24,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    marginBottom: 32,
+    textAlign: 'center',
+  },
+  input: {
+    backgroundColor: '#f2f2f2',
+    padding: 14,
+    borderRadius: 10,
+    marginBottom: 16,
+  },
+  button: {
+    backgroundColor: '#ff4d4d',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+});

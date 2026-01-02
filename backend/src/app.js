@@ -6,10 +6,11 @@ const profileRoutes = require('./routes/profileRoutes');
 
 const app = express();
 const swipeRoutes = require('./routes/swipeRoutes');
-
-app.use('/api/swipe', swipeRoutes);
+app.use(express.json());
+app.use('/api/swipe', require('./routes/swipeRoutes'));
 app.use(cors());
 app.use(express.json());
+app.use('/api/users', require('./routes/userRoutes'));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);

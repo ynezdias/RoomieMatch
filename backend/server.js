@@ -18,6 +18,8 @@ mongoose
 app.use('/users', require('./src/routes/userRoutes'));
 app.use('/swipe', require('./src/routes/swipeRoutes'));
 app.use('/chat', require('./src/routes/chatRoutes'));
+app.use('/auth', require('./src/routes/authRoutes'));
+
 
 /* ===================== SERVER ===================== */
 const server = http.createServer(app);

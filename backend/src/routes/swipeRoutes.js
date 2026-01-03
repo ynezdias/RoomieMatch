@@ -1,11 +1,8 @@
-const express = require('express');
-const router = express.Router();
-const Swipe = require('../models/Swipe');
+const router = require('express').Router();
+const auth = require('../middleware/auth');
 
-// TEMP: hardcoded user
-const CURRENT_USER_ID = 'PUT_A_REAL_USER_ID_HERE';
-
-router.post('/', async (req, res) => {
+router.post('/', auth, async (req, res) => {
+  const user = req.user;
   const { targetUserId, action } = req.body;
 
   await Swipe.create({

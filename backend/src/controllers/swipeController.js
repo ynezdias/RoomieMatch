@@ -1,34 +1,35 @@
 const Swipe = require('../models/Swipe');
+const Match = require('../models/Match');
 
-exports.swipeUser = async (req, res) => {
-  try {
-    const { targetUserId, action } = req.body;
+exports.handleSwipe = async (req, res) => {
+  const userId = req.user.id;
+  const { targetUserId, action } = req.body;
 
-    const swipe = await Swipe.create({
-      swiper: req.user.id,
-      target: targetUserId,
-      action,
+  await Swipe.create({
+    user: userId,
+    target: targetUserId,
+    action,
+  });
+
+  if (action === 'like') {
+    const reciprocal = await Swipe.findOne({
+      user: targetUserId,
+      target: userId,
+      action: 'like',
     });
 
-    // Check for match (mutual like)
-    let isMatch = false;
-
-    if (action === 'like') {
-      const reverseSwipe = await Swipe.findOne({
-        swiper: targetUserId,
-        target: req.user.id,
-        action: 'like',
+    if (reciprocal) {
+      const match = await Match.create({
+        users: [userId, targetUserId],
       });
 
-      if (reverseSwipe) isMatch = true;
-    }
+      // 🔥 REAL-TIME SOCKET EMIT
+      global.io.to(userId).emit('match', match);
+      global.io.to(targetUserId).emit('match', match);
 
-    res.status(201).json({
-      success: true,
-      swipe,
-      match: isMatch,
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+      return res.json({ match: true });
+    }
   }
+
+  res.json({ match: false });
 };

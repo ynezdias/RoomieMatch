@@ -1,19 +1,13 @@
-import React, {
-  createContext,
-  useContext,
-  useState,
-  ReactNode,
-} from 'react';
+import React, { createContext, useContext, useState, ReactNode } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
 
-type User = {
-  id: string;
-  email: string;
-};
+type User = { id: string; email: string };
 
 type AuthContextType = {
   user: User | null;
-  login: (email: string, password: string) => void;
-  register: (email: string, password: string) => void;
+  login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string) => Promise<void>;
   logout: () => void;
 };
 
@@ -22,17 +16,26 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
 
-  const login = (email: string, password: string) => {
-    console.log('Login pressed');
-    setUser({ id: '1', email });
+  const login = async (email: string, password: string) => {
+    const res = await axios.post('http://localhost:5000/auth/login', {
+      email,
+      password,
+    });
+    await AsyncStorage.setItem('token', res.data.token);
+    setUser(res.data.user);
   };
 
-  const register = (email: string, password: string) => {
-    console.log('Register pressed');
-    setUser({ id: '1', email });
+  const register = async (email: string, password: string) => {
+    const res = await axios.post('http://localhost:5000/auth/register', {
+      email,
+      password,
+    });
+    await AsyncStorage.setItem('token', res.data.token);
+    setUser(res.data.user);
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await AsyncStorage.removeItem('token');
     setUser(null);
   };
 
@@ -45,8 +48,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 export const useAuth = () => {
   const ctx = useContext(AuthContext);
-  if (!ctx) {
-    throw new Error('useAuth must be used inside AuthProvider');
-  }
+  if (!ctx) throw new Error('useAuth must be used inside AuthProvider');
   return ctx;
 };

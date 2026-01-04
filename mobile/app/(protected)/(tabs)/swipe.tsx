@@ -3,18 +3,23 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
+  runOnJS,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useEffect, useState } from 'react';
 import api from '@/services/api';
+import { connectSocket } from '@/src/socket';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
 export default function SwipeScreen() {
   const [profiles, setProfiles] = useState<any[]>([]);
   const [matchVisible, setMatchVisible] = useState(false);
+  const [socket, setSocket] = useState<any>(null);
 
   const translateX = useSharedValue(0);
+
+  /* ===================== FETCH USERS ===================== */
 
   useEffect(() => {
     fetchProfiles();
@@ -23,11 +28,32 @@ export default function SwipeScreen() {
   const fetchProfiles = async () => {
     try {
       const res = await api.get('/users/suggestions');
-      setProfiles(res.data);
+      setProfiles(res.data || []);
     } catch (err) {
       console.log('FETCH ERROR', err);
     }
   };
+
+  /* ===================== SOCKET ===================== */
+
+  useEffect(() => {
+    let s: any;
+
+    connectSocket().then((sock) => {
+      s = sock;
+      setSocket(sock);
+
+      sock.on('match', () => {
+        setMatchVisible(true);
+      });
+    });
+
+    return () => {
+      s?.disconnect();
+    };
+  }, []);
+
+  /* ===================== SWIPE HANDLER ===================== */
 
   const handleSwipe = async (action: 'like' | 'dislike', targetId: string) => {
     try {
@@ -36,7 +62,7 @@ export default function SwipeScreen() {
         action,
       });
 
-      if (res.data.match) {
+      if (res.data?.match) {
         setMatchVisible(true);
       }
     } catch (err) {
@@ -47,6 +73,8 @@ export default function SwipeScreen() {
     translateX.value = 0;
   };
 
+  /* ===================== GESTURE ===================== */
+
   const panGesture = Gesture.Pan()
     .onUpdate((e) => {
       translateX.value = e.translationX;
@@ -56,10 +84,10 @@ export default function SwipeScreen() {
 
       if (translateX.value > 120) {
         translateX.value = withSpring(SCREEN_WIDTH);
-        handleSwipe('like', profiles[0]._id);
+        runOnJS(handleSwipe)('like', profiles[0]._id);
       } else if (translateX.value < -120) {
         translateX.value = withSpring(-SCREEN_WIDTH);
-        handleSwipe('dislike', profiles[0]._id);
+        runOnJS(handleSwipe)('dislike', profiles[0]._id);
       } else {
         translateX.value = withSpring(0);
       }
@@ -69,6 +97,8 @@ export default function SwipeScreen() {
     transform: [{ translateX: translateX.value }],
   }));
 
+  /* ===================== EMPTY STATE ===================== */
+
   if (!profiles.length) {
     return (
       <View style={styles.center}>
@@ -76,6 +106,8 @@ export default function SwipeScreen() {
       </View>
     );
   }
+
+  /* ===================== UI ===================== */
 
   return (
     <View style={styles.container}>
@@ -94,12 +126,12 @@ export default function SwipeScreen() {
                 style={[
                   styles.card,
                   isTop && animatedStyle,
-                  { top: index * 10 },
+                  { top: index * 12 },
                 ]}
               >
                 <Text style={styles.name}>{user.name}</Text>
-                <Text>{user.university}</Text>
-                <Text>
+                <Text style={styles.sub}>{user.university}</Text>
+                <Text style={styles.sub}>
                   ${user.budget.min} – ${user.budget.max}
                 </Text>
               </Animated.View>
@@ -107,7 +139,8 @@ export default function SwipeScreen() {
           );
         })}
 
-      {/* MATCH MODAL */}
+      {/* ===================== MATCH MODAL ===================== */}
+
       <Modal visible={matchVisible} transparent animationType="fade">
         <View style={styles.modal}>
           <Text style={styles.matchText}>🎉 IT’S A MATCH!</Text>
@@ -119,6 +152,8 @@ export default function SwipeScreen() {
     </View>
   );
 }
+
+/* ===================== STYLES ===================== */
 
 const styles = StyleSheet.create({
   container: {
@@ -147,6 +182,10 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     marginBottom: 10,
+  },
+  sub: {
+    fontSize: 16,
+    color: '#555',
   },
   modal: {
     flex: 1,

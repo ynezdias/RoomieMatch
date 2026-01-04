@@ -31,18 +31,21 @@ const io = new Server(server, {
   },
 });
 
-io.on('connection', (socket) => {
-  console.log('🟢 User connected:', socket.id);
+const jwt = require('jsonwebtoken');
 
-  socket.on('join', (userId) => {
-    socket.join(userId);
-    console.log(`👤 User joined room: ${userId}`);
-  });
+io.use((socket, next) => {
+  const token = socket.handshake.auth.token;
+  if (!token) return next(new Error('No token'));
 
-  socket.on('disconnect', () => {
-    console.log('🔴 User disconnected:', socket.id);
-  });
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    socket.userId = decoded.id;
+    next();
+  } catch {
+    next(new Error('Invalid token'));
+  }
 });
+
 
 // make io available everywhere
 global.io = io;

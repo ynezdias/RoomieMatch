@@ -45,6 +45,29 @@ io.use((socket, next) => {
     next(new Error('Invalid token'));
   }
 });
+io.on('connection', (socket) => {
+  console.log('User connected:', socket.id);
+
+  socket.on('join', (userId) => {
+    socket.join(userId);
+  });
+
+  socket.on('sendMessage', async ({ matchId, senderId, text }) => {
+    const Message = require('./models/Message');
+
+    const message = await Message.create({
+      matchId,
+      sender: senderId,
+      text,
+    });
+
+    io.to(matchId).emit('newMessage', message);
+  });
+
+  socket.on('joinMatch', (matchId) => {
+    socket.join(matchId);
+  });
+});
 
 
 // make io available everywhere

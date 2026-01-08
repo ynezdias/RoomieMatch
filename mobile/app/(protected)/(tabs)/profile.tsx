@@ -1,116 +1,106 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native'
+import { View, Text, TextInput, Button, Alert } from 'react-native'
 import { useState } from 'react'
 import api from '@/services/api'
-import { useAuth } from '../../../src/context/AuthContext'
+import * as ImagePicker from 'expo-image-picker'
 
 export default function ProfileScreen() {
-  const { user } = useAuth()
-
-  const [name, setName] = useState(user?.name || '')
-  const [university, setUniversity] = useState(user?.university || '')
-  const [minBudget, setMinBudget] = useState(
-    user?.budget?.min?.toString() || ''
-  )
-  const [maxBudget, setMaxBudget] = useState(
-    user?.budget?.max?.toString() || ''
-  )
-  const [bio, setBio] = useState(user?.bio || '')
+  const [aboutMe, setAboutMe] = useState('')
+  const [university, setUniversity] = useState('')
+  const [city, setCity] = useState('')
+  const [minBudget, setMinBudget] = useState('')
+  const [maxBudget, setMaxBudget] = useState('')
 
   const saveProfile = async () => {
     try {
-      await api.put('/users/profile', {
-        name,
+      await api.post('/users/profile', {
+        aboutMe,
         university,
-        bio,
+        city,
         budget: {
           min: Number(minBudget),
           max: Number(maxBudget),
         },
       })
 
-      alert('✅ Profile saved!')
+      Alert.alert('✅ Profile saved')
     } catch (err) {
       console.log(err)
-      alert('❌ Failed to save profile')
+      Alert.alert('❌ Failed to save profile')
     }
   }
+  const pickImage = async () => {
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    quality: 0.7,
+  })
+
+  if (!result.canceled) {
+    const formData = new FormData()
+
+    formData.append('photo', {
+      uri: result.assets[0].uri,
+      name: 'photo.jpg',
+      type: 'image/jpeg',
+    } as any)
+
+    await api.post('/users/profile/photo', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  }
+}
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>My Profile</Text>
+    <View style={{ padding: 20 }}>
+      <Text>About Me</Text>
+      <TextInput onChangeText={setAboutMe} />
 
-      <TextInput
-        placeholder="Name"
-        value={name}
-        onChangeText={setName}
-        style={styles.input}
-      />
+      <Text>University</Text>
+      <TextInput onChangeText={setUniversity} />
 
-      <TextInput
-        placeholder="University"
-        value={university}
-        onChangeText={setUniversity}
-        style={styles.input}
-      />
+      <Text>City</Text>
+      <TextInput onChangeText={setCity} />
 
-      <TextInput
-        placeholder="Min Budget"
-        value={minBudget}
-        onChangeText={setMinBudget}
-        keyboardType="numeric"
-        style={styles.input}
-      />
+      <Text>Budget Min</Text>
+      <TextInput keyboardType="numeric" onChangeText={setMinBudget} />
 
-      <TextInput
-        placeholder="Max Budget"
-        value={maxBudget}
-        onChangeText={setMaxBudget}
-        keyboardType="numeric"
-        style={styles.input}
-      />
+      <Text>Budget Max</Text>
+      <TextInput keyboardType="numeric" onChangeText={setMaxBudget} />
 
-      <TextInput
-        placeholder="Bio"
-        value={bio}
-        onChangeText={setBio}
-        style={[styles.input, { height: 80 }]}
-        multiline
-      />
+      <Button title="Save Profile" onPress={saveProfile} />
+      <Button title="Upload Photo" onPress={pickImage} />
 
-      <TouchableOpacity style={styles.button} onPress={saveProfile}>
-        <Text style={styles.buttonText}>Save Profile</Text>
-      </TouchableOpacity>
     </View>
   )
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-    backgroundColor: '#fff',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 12,
-  },
-  button: {
-    backgroundColor: 'black',
-    padding: 15,
-    borderRadius: 12,
-    marginTop: 10,
-  },
-  buttonText: {
-    color: 'white',
-    textAlign: 'center',
-    fontSize: 16,
-  },
-})
+
+// const styles = StyleSheet.create({
+//   container: {
+//     flex: 1,
+//     padding: 20,
+//     backgroundColor: '#fff',
+//   },
+//   title: {
+//     fontSize: 28,
+//     fontWeight: 'bold',
+//     marginBottom: 20,
+//   },
+//   input: {
+//     borderWidth: 1,
+//     borderColor: '#ddd',
+//     borderRadius: 10,
+//     padding: 12,
+//     marginBottom: 12,
+//   },
+//   button: {
+//     backgroundColor: 'black',
+//     padding: 15,
+//     borderRadius: 12,
+//     marginTop: 10,
+//   },
+//   buttonText: {
+//     color: 'white',
+//     textAlign: 'center',
+//     fontSize: 16,
+//   },
+// })

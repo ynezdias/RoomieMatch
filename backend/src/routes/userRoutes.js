@@ -17,5 +17,22 @@ router.put('/profile', auth, async (req, res) => {
     res.status(500).json({ error: 'Profile update failed' })
   }
 })
+const multer = require('multer')
+
+const upload = multer({
+  dest: 'uploads/',
+})
+
+router.post(
+  '/profile/photo',
+  authMiddleware,
+  upload.single('photo'),
+  async (req, res) => {
+    req.user.photo = req.file.filename
+    await req.user.save()
+    res.json({ success: true })
+  }
+)
+
 
 module.exports = router

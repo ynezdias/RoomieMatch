@@ -124,6 +124,16 @@ export default function SwipeScreen() {
     opacity: matchOpacity.value,
     transform: [{ scale: matchScale.value }],
   }))
+const fetchProfiles = async () => {
+  try {
+    const res = await api.get('/users/suggestions')
+    setProfiles(res.data)
+  } catch (err: any) {
+    if (err.response?.status === 403) {
+      router.replace('/(protected)/(tabs)/profile')
+    }
+  }
+}
 
   /* ===================== EMPTY STATE ===================== */
 

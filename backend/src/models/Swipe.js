@@ -1,9 +1,12 @@
 const mongoose = require('mongoose');
 
-const swipeSchema = new mongoose.Schema({
-  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  targetUser: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  action: { type: String, enum: ['like', 'dislike'] },
-});
+const swipeSchema = new mongoose.Schema(
+  {
+    swiper: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    target: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    direction: { type: String, enum: ['left', 'right'] },
+  },
+  { timestamps: true }
+);
 
 module.exports = mongoose.model('Swipe', swipeSchema);

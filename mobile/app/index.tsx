@@ -1,10 +1,14 @@
-import { View, Text, TextInput, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useAuth } from '../../../src/context/AuthContext';
+import { View, Text, TextInput, TouchableOpacity } from 'react-native'
+import { useAuth } from '../src/context/AuthContext'
+import { useState } from 'react'
+import { useRouter } from 'expo-router'
 
 export default function Index() {
-  const { login } = useAuth();
-  const router = useRouter();
+  const { login } = useAuth()
+  const router = useRouter()
+
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
 
   return (
     <View style={{ flex: 1, justifyContent: 'center', padding: 20 }}>
@@ -12,16 +16,21 @@ export default function Index() {
 
       <TextInput
         placeholder="Email"
+        value={email}
+        onChangeText={setEmail}
         style={{ borderWidth: 1, marginBottom: 10, padding: 10 }}
       />
+
       <TextInput
         placeholder="Password"
+        value={password}
+        onChangeText={setPassword}
         secureTextEntry
         style={{ borderWidth: 1, marginBottom: 20, padding: 10 }}
       />
 
       <TouchableOpacity
-        onPress={() => login('test@test.com', '1234')}
+        onPress={() => login(email, password)}
         style={{ backgroundColor: 'black', padding: 15 }}
       >
         <Text style={{ color: 'white', textAlign: 'center' }}>Login</Text>
@@ -36,5 +45,5 @@ export default function Index() {
         </Text>
       </TouchableOpacity>
     </View>
-  );
+  )
 }

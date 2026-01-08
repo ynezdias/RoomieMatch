@@ -1,11 +1,21 @@
-const express = require('express');
-const router = express.Router();
-const User = require('../models/User');
+const express = require('express')
+const router = express.Router()
+const User = require('../models/User')
+const auth = require('../middleware/auth')
 
-// TEMP: replace with auth later
-router.get('/suggestions', async (req, res) => {
-  const users = await User.find().limit(10);
-  res.json(users);
-});
+// UPDATE PROFILE
+router.put('/profile', auth, async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      req.body,
+      { new: true }
+    )
 
-module.exports = router;
+    res.json(user)
+  } catch (err) {
+    res.status(500).json({ error: 'Profile update failed' })
+  }
+})
+
+module.exports = router

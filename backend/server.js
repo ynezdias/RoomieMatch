@@ -1,16 +1,18 @@
 require('dotenv').config();
+
 const http = require('http');
 const mongoose = require('mongoose');
 const { Server } = require('socket.io');
+const jwt = require('jsonwebtoken');
 
 const app = require('./src/app');
 
 /* ===================== DATABASE ===================== */
 mongoose
   .connect(process.env.MONGO_URI)
-  .then(() => console.log('MongoDB connected'))
+  .then(() => console.log('✅ MongoDB connected'))
   .catch((err) => {
-    console.error('MongoDB connection error:', err);
+    console.error('❌ MongoDB connection error:', err);
     process.exit(1);
   });
 
@@ -19,7 +21,6 @@ app.use('/users', require('./src/routes/userRoutes'));
 app.use('/swipe', require('./src/routes/swipeRoutes'));
 app.use('/chat', require('./src/routes/chatRoutes'));
 app.use('/auth', require('./src/routes/authRoutes'));
-
 
 /* ===================== SERVER ===================== */
 const server = http.createServer(app);
@@ -31,46 +32,52 @@ const io = new Server(server, {
   },
 });
 
-const jwt = require('jsonwebtoken');
-
+/* ---------- Socket Auth Middleware ---------- */
 io.use((socket, next) => {
-  const token = socket.handshake.auth.token;
-  if (!token) return next(new Error('No token'));
+  const token = socket.handshake.auth?.token;
+
+  if (!token) {
+    return next(new Error('❌ No token provided'));
+  }
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     socket.userId = decoded.id;
     next();
-  } catch {
-    next(new Error('Invalid token'));
+  } catch (err) {
+    return next(new Error('❌ Invalid token'));
   }
 });
-io.on('connection', (socket) => {
-  console.log('User connected:', socket.id);
 
-  socket.on('join', (userId) => {
-    socket.join(userId);
+/* ---------- Socket Events ---------- */
+io.on('connection', (socket) => {
+  console.log('🟢 Socket connected:', socket.userId);
+
+  // Join personal room
+  socket.join(socket.userId);
+
+  socket.on('joinMatch', (matchId) => {
+    socket.join(matchId);
   });
 
-  socket.on('sendMessage', async ({ matchId, senderId, text }) => {
-    const Message = require('./models/Message');
+  socket.on('sendMessage', async ({ matchId, text }) => {
+    const Message = require('./src/models/Message');
 
     const message = await Message.create({
       matchId,
-      sender: senderId,
+      sender: socket.userId,
       text,
     });
 
     io.to(matchId).emit('newMessage', message);
   });
 
-  socket.on('joinMatch', (matchId) => {
-    socket.join(matchId);
+  socket.on('disconnect', () => {
+    console.log('🔴 Socket disconnected:', socket.userId);
   });
 });
 
-
-// make io available everywhere
+/* ---------- Make io Global ---------- */
 global.io = io;
 
 /* ===================== START ===================== */

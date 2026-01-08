@@ -1,103 +1,129 @@
-import { View, Text, StyleSheet, Dimensions, Modal, Pressable } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Dimensions,
+  Modal,
+  Pressable,
+} from 'react-native'
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
   runOnJS,
-} from 'react-native-reanimated';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { useEffect, useState } from 'react';
-import api from '@/services/api';
-import { connectSocket } from '../../../src/sockets';
+} from 'react-native-reanimated'
+import { Gesture, GestureDetector } from 'react-native-gesture-handler'
+import { useEffect, useState } from 'react'
+import api from '@/services/api'
+import { connectSocket } from '../../../src/sockets'
 
-
-
-const SCREEN_WIDTH = Dimensions.get('window').width;
+const SCREEN_WIDTH = Dimensions.get('window').width
 
 export default function SwipeScreen() {
-  const [profiles, setProfiles] = useState<any[]>([]);
-  const [matchVisible, setMatchVisible] = useState(false);
-  const [socket, setSocket] = useState<any>(null);
+  const [profiles, setProfiles] = useState<any[]>([])
+  const [matchVisible, setMatchVisible] = useState(false)
 
-  const translateX = useSharedValue(0);
+  const translateX = useSharedValue(0)
 
-  /* ===================== FETCH USERS ===================== */
+  // 🔥 MATCH ANIMATION VALUES
+  const matchScale = useSharedValue(0.5)
+  const matchOpacity = useSharedValue(0)
+
+  /* ===================== FETCH PROFILES ===================== */
 
   useEffect(() => {
-    fetchProfiles();
-  }, []);
+    fetchProfiles()
+  }, [])
 
   const fetchProfiles = async () => {
     try {
-      const res = await api.get('/users/suggestions');
-      setProfiles(res.data || []);
+      const res = await api.get('/users/suggestions')
+      setProfiles(res.data || [])
     } catch (err) {
-      console.log('FETCH ERROR', err);
+      console.log('❌ FETCH ERROR', err)
     }
-  };
+  }
 
   /* ===================== SOCKET ===================== */
 
   useEffect(() => {
-    let s: any;
+    let mounted = true
 
     connectSocket().then((sock) => {
-      s = sock;
-      setSocket(sock);
+      if (!sock || !mounted) return
 
-      sock.on('match', () => {
-        setMatchVisible(true);
-      });
-    });
+      sock.on('newMatch', () => {
+        triggerMatch()
+      })
+    })
 
     return () => {
-      s?.disconnect();
-    };
-  }, []);
+      mounted = false
+    }
+  }, [])
+
+  /* ===================== MATCH TRIGGER ===================== */
+
+  const triggerMatch = () => {
+    setMatchVisible(true)
+    matchScale.value = 0.5
+    matchOpacity.value = 0
+
+    matchScale.value = withSpring(1.2)
+    matchOpacity.value = withSpring(1)
+  }
 
   /* ===================== SWIPE HANDLER ===================== */
 
-  const handleSwipe = async (action: 'like' | 'dislike', targetId: string) => {
+  const handleSwipe = async (
+    direction: 'left' | 'right',
+    targetId: string
+  ) => {
     try {
       const res = await api.post('/swipe', {
         targetUserId: targetId,
-        action,
-      });
+        direction,
+      })
 
       if (res.data?.match) {
-        setMatchVisible(true);
+        triggerMatch()
       }
     } catch (err) {
-      console.log('SWIPE ERROR', err);
+      console.log('❌ SWIPE ERROR', err)
     }
 
-    setProfiles((prev) => prev.slice(1));
-    translateX.value = 0;
-  };
+    setProfiles((prev) => prev.slice(1))
+    translateX.value = 0
+  }
 
   /* ===================== GESTURE ===================== */
 
   const panGesture = Gesture.Pan()
     .onUpdate((e) => {
-      translateX.value = e.translationX;
+      translateX.value = e.translationX
     })
     .onEnd(() => {
-      if (!profiles.length) return;
+      if (!profiles.length) return
 
       if (translateX.value > 120) {
-        translateX.value = withSpring(SCREEN_WIDTH);
-        runOnJS(handleSwipe)('like', profiles[0]._id);
+        translateX.value = withSpring(SCREEN_WIDTH)
+        runOnJS(handleSwipe)('right', profiles[0]._id)
       } else if (translateX.value < -120) {
-        translateX.value = withSpring(-SCREEN_WIDTH);
-        runOnJS(handleSwipe)('dislike', profiles[0]._id);
+        translateX.value = withSpring(-SCREEN_WIDTH)
+        runOnJS(handleSwipe)('left', profiles[0]._id)
       } else {
-        translateX.value = withSpring(0);
+        translateX.value = withSpring(0)
       }
-    });
+    })
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: translateX.value }],
-  }));
+  }))
+
+  const matchAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: matchOpacity.value,
+    transform: [{ scale: matchScale.value }],
+  }))
 
   /* ===================== EMPTY STATE ===================== */
 
@@ -106,7 +132,7 @@ export default function SwipeScreen() {
       <View style={styles.center}>
         <Text>No more profiles</Text>
       </View>
-    );
+    )
   }
 
   /* ===================== UI ===================== */
@@ -117,7 +143,7 @@ export default function SwipeScreen() {
         .slice(0, 2)
         .reverse()
         .map((user, index) => {
-          const isTop = index === 1;
+          const isTop = index === 1
 
           return (
             <GestureDetector
@@ -133,26 +159,39 @@ export default function SwipeScreen() {
               >
                 <Text style={styles.name}>{user.name}</Text>
                 <Text style={styles.sub}>{user.university}</Text>
-                <Text style={styles.sub}>
-                  ${user.budget.min} – ${user.budget.max}
-                </Text>
+
+                {user.budget?.min != null && user.budget?.max != null && (
+                  <Text style={styles.sub}>
+                    ${user.budget.min} – ${user.budget.max}
+                  </Text>
+                )}
               </Animated.View>
             </GestureDetector>
-          );
+          )
         })}
 
-      {/* ===================== MATCH MODAL ===================== */}
+      {/* ===================== TINDER MATCH MODAL ===================== */}
 
-      <Modal visible={matchVisible} transparent animationType="fade">
+      <Modal visible={matchVisible} transparent animationType="none">
         <View style={styles.modal}>
-          <Text style={styles.matchText}>🎉 IT’S A MATCH!</Text>
-          <Pressable onPress={() => setMatchVisible(false)}>
-            <Text style={styles.close}>Close</Text>
-          </Pressable>
+          <Animated.View style={matchAnimatedStyle}>
+            <Text style={styles.heart}>❤️</Text>
+            <Text style={styles.matchText}>IT’S A MATCH!</Text>
+
+            <Pressable
+              onPress={() => {
+                matchOpacity.value = withSpring(0)
+                matchScale.value = withSpring(0.5)
+                setTimeout(() => setMatchVisible(false), 250)
+              }}
+            >
+              <Text style={styles.close}>Continue Swiping</Text>
+            </Pressable>
+          </Animated.View>
         </View>
       </Modal>
     </View>
-  );
+  )
 }
 
 /* ===================== STYLES ===================== */
@@ -195,14 +234,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  heart: {
+    fontSize: 100,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
   matchText: {
     fontSize: 32,
     fontWeight: 'bold',
     color: '#fff',
     marginBottom: 20,
+    textAlign: 'center',
   },
   close: {
     fontSize: 18,
     color: '#fff',
+    textAlign: 'center',
   },
-});
+})

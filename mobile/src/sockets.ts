@@ -3,7 +3,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 
 let socket: Socket | null = null
 
-export const connectSocket = async () => {
+const SOCKET_URL = 'http://192.168.1.159:5000' // 👈 YOUR IP
+
+export const connectSocket = async (userId: string) => {
   if (socket) return socket
 
   const token = await AsyncStorage.getItem('token')
@@ -13,15 +15,14 @@ export const connectSocket = async () => {
     return null
   }
 
-  socket = io('http://YOUR_BACKEND_IP:5000', {
-    auth: {
-      token,
-    },
+  socket = io(SOCKET_URL, {
+    auth: { token },
     transports: ['websocket'],
   })
 
   socket.on('connect', () => {
-    console.log('✅ Socket connected:', socket?.id)
+    console.log('🟢 Socket connected')
+    socket?.emit('join', userId)
   })
 
   socket.on('disconnect', () => {

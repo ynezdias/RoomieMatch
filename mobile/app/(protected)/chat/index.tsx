@@ -1,6 +1,6 @@
 import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useAuth } from '../src/context/AuthContext';
+import { useAuth } from '../../../src/context/AuthContext';
 
 export default function Index() {
   const { login } = useAuth();

@@ -8,7 +8,8 @@ import Animated, {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useEffect, useState } from 'react';
 import api from '@/services/api';
-import { connectSocket } from '../../../src/socket'
+import { connectSocket } from '../../../src/sockets';
+
 
 
 const SCREEN_WIDTH = Dimensions.get('window').width;

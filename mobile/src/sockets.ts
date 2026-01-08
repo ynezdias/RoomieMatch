@@ -1,31 +1,31 @@
-import { io, Socket } from 'socket.io-client';
-
-let socket: Socket | null = null;
-
-export const connectSocket = () => {
-  if (!socket) {
-    socket = io('http://192.168.1.159:5000', {
-      transports: ['websocket'],
-    });
-  }
-
-  return socket;
-};
 import { io, Socket } from 'socket.io-client'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 
 let socket: Socket | null = null
 
 export const connectSocket = async () => {
+  if (socket) return socket
+
   const token = await AsyncStorage.getItem('token')
 
-  if (!token) return null
+  if (!token) {
+    console.log('❌ No token — socket not connected')
+    return null
+  }
 
-  socket = io('http://YOUR_LOCAL_IP:5000', {
+  socket = io('http://YOUR_BACKEND_IP:5000', {
     auth: {
       token,
     },
     transports: ['websocket'],
+  })
+
+  socket.on('connect', () => {
+    console.log('✅ Socket connected:', socket?.id)
+  })
+
+  socket.on('disconnect', () => {
+    console.log('⚠️ Socket disconnected')
   })
 
   return socket
@@ -39,5 +39,3 @@ export const disconnectSocket = () => {
     socket = null
   }
 }
-
-export const getSocket = () => socket;

@@ -1,12 +1,10 @@
-import { Redirect, Slot } from 'expo-router';
-import { useAuth } from '../../src/context/AuthContext';
+import { Stack } from 'expo-router'
+import { AuthProvider } from '../../src/context/AuthContext'
 
-export default function ProtectedLayout() {
-  const { user } = useAuth();
-
-  if (!user) {
-    return <Redirect href="/" />;
-  }
-
-  return <Slot />;
+export default function ChatLayout() {
+  return (
+    <AuthProvider>
+      <Stack screenOptions={{ headerShown: false }} />
+    </AuthProvider>
+  )
 }

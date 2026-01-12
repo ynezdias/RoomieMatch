@@ -2,25 +2,23 @@ const express = require('express');
 const cors = require('cors');
 
 const authRoutes = require('./routes/authRoutes');
-const profileRoutes = require('./routes/profileRoutes');
-const app = express();
-
 const userRoutes = require('./routes/userRoutes');
 const swipeRoutes = require('./routes/swipeRoutes');
+const profileRoutes = require('./routes/profileRoutes');
 
-app.use('/users', userRoutes);
-app.use('/swipe', swipeRoutes);
+const app = express();
 
-app.use(express.json());
-app.use('/api/swipe', require('./routes/swipeRoutes'));
+/* ===== MIDDLEWARE ===== */
 app.use(cors());
 app.use(express.json());
-app.use('/api/users', require('./routes/userRoutes'));
-app.use('/auth', require('./routes/authRoutes'));
 
-app.use('/api/auth', authRoutes);
+/* ===== ROUTES ===== */
+app.use('/api/auth', authRoutes);     // login, register
+app.use('/api/users', userRoutes);    // user info
 app.use('/api/profile', profileRoutes);
+app.use('/api/swipe', swipeRoutes);
 
+/* ===== HEALTH CHECK ===== */
 app.get('/', (req, res) => {
   res.send('RoomieMatch API running');
 });

@@ -14,12 +14,15 @@ import Animated, {
 } from 'react-native-reanimated'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { useEffect, useState } from 'react'
+import { useRouter } from 'expo-router'
 import api from '@/services/api'
 import { connectSocket } from '../../../src/sockets'
 
 const SCREEN_WIDTH = Dimensions.get('window').width
 
 export default function SwipeScreen() {
+  const router = useRouter()
+
   const [profiles, setProfiles] = useState<any[]>([])
   const [matchVisible, setMatchVisible] = useState(false)
 
@@ -31,18 +34,23 @@ export default function SwipeScreen() {
 
   /* ===================== FETCH PROFILES ===================== */
 
-  useEffect(() => {
-    fetchProfiles()
-  }, [])
-
   const fetchProfiles = async () => {
     try {
       const res = await api.get('/users/suggestions')
       setProfiles(res.data || [])
-    } catch (err) {
-      console.log('❌ FETCH ERROR', err)
+    } catch (err: any) {
+      // 🔒 Force profile completion
+      if (err.response?.status === 403) {
+        router.replace('/(protected)/(tabs)/profile')
+      } else {
+        console.log('❌ FETCH ERROR', err)
+      }
     }
   }
+
+  useEffect(() => {
+    fetchProfiles()
+  }, [])
 
   /* ===================== SOCKET ===================== */
 
@@ -66,6 +74,7 @@ export default function SwipeScreen() {
 
   const triggerMatch = () => {
     setMatchVisible(true)
+
     matchScale.value = 0.5
     matchOpacity.value = 0
 
@@ -124,16 +133,6 @@ export default function SwipeScreen() {
     opacity: matchOpacity.value,
     transform: [{ scale: matchScale.value }],
   }))
-const fetchProfiles = async () => {
-  try {
-    const res = await api.get('/users/suggestions')
-    setProfiles(res.data)
-  } catch (err: any) {
-    if (err.response?.status === 403) {
-      router.replace('/(protected)/(tabs)/profile')
-    }
-  }
-}
 
   /* ===================== EMPTY STATE ===================== */
 
@@ -170,11 +169,12 @@ const fetchProfiles = async () => {
                 <Text style={styles.name}>{user.name}</Text>
                 <Text style={styles.sub}>{user.university}</Text>
 
-                {user.budget?.min != null && user.budget?.max != null && (
-                  <Text style={styles.sub}>
-                    ${user.budget.min} – ${user.budget.max}
-                  </Text>
-                )}
+                {user.budget?.min != null &&
+                  user.budget?.max != null && (
+                    <Text style={styles.sub}>
+                      ${user.budget.min} – ${user.budget.max}
+                    </Text>
+                  )}
               </Animated.View>
             </GestureDetector>
           )

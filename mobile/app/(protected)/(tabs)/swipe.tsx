@@ -17,6 +17,8 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'expo-router'
 import api from '@/services/api'
 import { connectSocket } from '../../../src/sockets'
+import { useAuth } from '../../../src/context/AuthContext'
+
 
 const SCREEN_WIDTH = Dimensions.get('window').width
 
@@ -31,6 +33,7 @@ export default function SwipeScreen() {
   // 🔥 MATCH ANIMATION VALUES
   const matchScale = useSharedValue(0.5)
   const matchOpacity = useSharedValue(0)
+const { user } = useAuth()
 
   /* ===================== FETCH PROFILES ===================== */
 
@@ -57,13 +60,14 @@ export default function SwipeScreen() {
   useEffect(() => {
     let mounted = true
 
-    connectSocket().then((sock) => {
-      if (!sock || !mounted) return
+useEffect(() => {
+  if (!user?._id) return
 
-      sock.on('newMatch', () => {
-        triggerMatch()
-      })
-    })
+  connectSocket(user._id).then((sock) => {
+    if (!sock) return
+    sock.on('newMatch', triggerMatch)
+  })
+}, [user])
 
     return () => {
       mounted = false

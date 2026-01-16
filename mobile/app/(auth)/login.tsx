@@ -10,7 +10,7 @@ export default function LoginScreen() {
   const handleLogin = () => {
     console.log('Login Pressed');
     // TEMP: skip backend auth for now
-    router.replace('/(tabs)/swipe');
+    router.replace('/(protected)/(tabs)/swipe');
   };
 
   return (
@@ -36,7 +36,7 @@ export default function LoginScreen() {
         <Text style={styles.buttonText}>Login</Text>
       </Pressable>
 
-      <Pressable onPress={() => router.push('/(auth)/register')}>
+      <Pressable onPress={() => router.push('/register')}>
         <Text style={styles.link}>Create an account</Text>
       </Pressable>
     </View>

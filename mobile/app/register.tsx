@@ -11,18 +11,19 @@ export default function Register() {
 
   const handleRegister = async () => {
     try {
-      await api.post('/auth/register', {
+      await api.post('/api/auth/register', {
         name,
         email,
         password,
       })
+      await api.post('/api/auth/login', { email, password })
 
       alert('Account created. Please login.')
       router.replace('/')
-    } catch (err) {
-      console.log(err)
-      alert('Registration failed')
-    }
+    }catch (err: any) {
+      console.log('REGISTER ERROR:', err.response?.data || err.message)
+      alert(JSON.stringify(err.response?.data || err.message))
+}
   }
 
   return (

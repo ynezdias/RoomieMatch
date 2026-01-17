@@ -7,6 +7,10 @@ const swipeRoutes = require('./routes/swipeRoutes');
 const profileRoutes = require('./routes/profileRoutes');
 
 const app = express();
+app.use((req, res, next) => {
+  console.log(`📥 ${req.method} ${req.originalUrl}`)
+  next()
+})
 
 /* ===== MIDDLEWARE ===== */
 app.use(cors());

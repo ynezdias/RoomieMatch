@@ -26,22 +26,21 @@ export default function ProfileScreen() {
   const [saving, setSaving] = useState(false)
 
   /* ===================== LOAD PROFILE ===================== */
-
   useEffect(() => {
     const loadProfile = async () => {
       try {
         const res = await api.get('/api/profile/me')
         const p = res.data
-
-        setAbout(p?.aboutMe || '')
-        setUniversity(p?.university || '')
-        setCity(p?.city || '')
-        setPhoto(p?.photo || null)
-      } catch {
-        console.log('No profile yet')
+        if (p) {
+          setAbout(p.aboutMe || '')
+          setUniversity(p.university || '')
+          setCity(p.city || '')
+          setPhoto(p.photo || null)
+        }
+      } catch (err) {
+        console.log('No profile yet', err)
       }
     }
-
     loadProfile()
   }, [])
 
@@ -49,21 +48,18 @@ export default function ProfileScreen() {
     [about, university, city, photo].filter(Boolean).length / 4
 
   /* ===================== IMAGE PICKER ===================== */
-
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       quality: 0.7,
     })
-
     if (!result.canceled) {
       setPhoto(result.assets[0].uri)
     }
   }
 
   /* ===================== SAVE PROFILE ===================== */
-
   const saveProfile = async () => {
     if (!about || !university || !city) {
       Alert.alert('Incomplete Profile', 'Please fill all required fields.')
@@ -73,16 +69,21 @@ export default function ProfileScreen() {
     try {
       setSaving(true)
 
-      await api.put('/api/profile', {
+      // ⚡ PUT request to save profile
+      const res = await api.put('/api/profile', {
         aboutMe: about,
         university,
         city,
         photo,
       })
 
-      Alert.alert('Success', 'Profile saved successfully')
+      if (res.status === 200) {
+        Alert.alert('Success', 'Profile saved successfully')
+      } else {
+        Alert.alert('Error', 'Failed to save profile')
+      }
     } catch (err: any) {
-      console.log(err.response?.data || err.message)
+      console.log('🔥 SAVE PROFILE ERROR:', err.response?.data || err.message)
       Alert.alert('Error', 'Failed to save profile')
     } finally {
       setSaving(false)
@@ -90,7 +91,6 @@ export default function ProfileScreen() {
   }
 
   /* ===================== UI ===================== */
-
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>My Profile</Text>
@@ -114,12 +114,7 @@ export default function ProfileScreen() {
 
       {/* PROGRESS */}
       <View style={styles.progressBar}>
-        <View
-          style={[
-            styles.progressFill,
-            { width: `${completion * 100}%` },
-          ]}
-        />
+        <View style={[styles.progressFill, { width: `${completion * 100}%` }]} />
       </View>
       <Text style={styles.progressText}>
         Profile completion: {Math.round(completion * 100)}%
@@ -249,4 +244,3 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 })
-

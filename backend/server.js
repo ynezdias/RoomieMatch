@@ -23,7 +23,7 @@ app.use('/swipe', require('./src/routes/swipeRoutes'))
 app.use('/chat', require('./src/routes/chatRoutes'))
 
 // 🔥 THIS WAS MISSING
-app.use('/api/profile', require('./src/routes/profileRoutes'))
+// app.use('/api/profile', require('./src/routes/profileRoutes'))
 
 /* ===================== SERVER ===================== */
 const server = http.createServer(app)

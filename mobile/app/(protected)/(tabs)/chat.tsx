@@ -1,64 +1,112 @@
-import { View, Text, FlatList, TextInput, Pressable, StyleSheet } from 'react-native';
-import { useEffect, useState } from 'react';
-import api from '@/services/api';
-import { connectSocket } from '@/src/sockets';
-import { useAuth } from '@/src/context/AuthContext';
+import {
+  View,
+  Text,
+  FlatList,
+  TextInput,
+  Pressable,
+  StyleSheet,
+} from 'react-native'
+import { useEffect, useRef, useState } from 'react'
+import { useLocalSearchParams } from 'expo-router'
+import api from '@/services/api'
+import { connectSocket } from '@/src/sockets'
+import { useAuth } from '@/src/context/AuthContext'
 
 export default function ChatScreen() {
-  const { user } = useAuth();
-  const [messages, setMessages] = useState<any[]>([]);
-  const [text, setText] = useState('');
-  const [socket, setSocket] = useState<any>(null);
+  const { user } = useAuth()
+  const { matchId } = useLocalSearchParams<{ matchId: string }>()
 
-  const matchId = 'MATCH_ID_HERE'; // later from route params
+  const [messages, setMessages] = useState<any[]>([])
+  const [text, setText] = useState('')
 
-  useEffect(() => {
-    loadMessages();
+  const socketRef = useRef<any>(null)
 
-    connectSocket().then((sock) => {
-      setSocket(sock);
-      sock.emit('joinMatch', matchId);
+  /* ===================== GUARD ===================== */
 
-      sock.on('newMessage', (msg) => {
-        setMessages((prev) => [...prev, msg]);
-      });
-    });
-  }, []);
+  if (!user || !matchId) {
+    return (
+      <View style={styles.center}>
+        <Text>Loading chat...</Text>
+      </View>
+    )
+  }
+
+  /* ===================== LOAD MESSAGES ===================== */
 
   const loadMessages = async () => {
-    const res = await api.get(`/chat/${matchId}`);
-    setMessages(res.data);
-  };
+    try {
+      const res = await api.get(`/api/chat/${matchId}`)
+      setMessages(res.data)
+    } catch (err) {
+      console.log('❌ LOAD CHAT ERROR', err)
+    }
+  }
+
+  /* ===================== SOCKET ===================== */
+
+  useEffect(() => {
+    let mounted = true
+
+    loadMessages()
+
+    connectSocket(user._id).then((socket) => {
+      if (!mounted || !socket) return
+
+      socketRef.current = socket
+      socket.emit('joinMatch', matchId)
+
+      socket.on('newMessage', (msg) => {
+        setMessages((prev) => [...prev, msg])
+      })
+    })
+
+    return () => {
+      mounted = false
+      if (socketRef.current) {
+        socketRef.current.off('newMessage')
+      }
+    }
+  }, [matchId, user._id])
+
+  /* ===================== SEND ===================== */
 
   const sendMessage = () => {
-    if (!text.trim()) return;
+    if (!text.trim() || !socketRef.current) return
 
-    socket.emit('sendMessage', {
+    socketRef.current.emit('sendMessage', {
       matchId,
-      senderId: user.id,
+      senderId: user._id,
       text,
-    });
+    })
 
-    setText('');
-  };
+    setText('')
+  }
+
+  /* ===================== UI ===================== */
 
   return (
     <View style={styles.container}>
       <FlatList
         data={messages}
         keyExtractor={(item) => item._id}
-        renderItem={({ item }) => (
-          <Text style={item.sender._id === user.id ? styles.me : styles.them}>
-            {item.text}
-          </Text>
-        )}
+        renderItem={({ item }) => {
+          const isMe =
+            item.sender === user._id ||
+            item.sender?._id === user._id
+
+          return (
+            <Text style={isMe ? styles.me : styles.them}>
+              {item.text}
+            </Text>
+          )
+        }}
       />
 
       <View style={styles.inputRow}>
         <TextInput
           value={text}
           onChangeText={setText}
-          placeholder="Type..."
+          placeholder="Type a message..."
           style={styles.input}
         />
         <Pressable onPress={sendMessage}>
@@ -66,10 +114,18 @@ export default function ChatScreen() {
         </Pressable>
       </View>
     </View>
-  );
+  )
 }
+
+/* ===================== STYLES ===================== */
+
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 10 },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   me: {
     alignSelf: 'flex-end',
     backgroundColor: '#4CAF50',
@@ -77,6 +133,7 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 10,
     marginVertical: 4,
+    maxWidth: '80%',
   },
   them: {
     alignSelf: 'flex-start',
@@ -84,10 +141,12 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 10,
     marginVertical: 4,
+    maxWidth: '80%',
   },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 6,
   },
   input: {
     flex: 1,
@@ -100,4 +159,4 @@ const styles = StyleSheet.create({
     color: '#007AFF',
     fontWeight: 'bold',
   },
-});
+})

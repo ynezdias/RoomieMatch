@@ -7,6 +7,7 @@ import {
   ScrollView,
   Alert,
   Image,
+  ActivityIndicator,
 } from 'react-native'
 import { useEffect, useState } from 'react'
 import * as ImagePicker from 'expo-image-picker'
@@ -36,7 +37,7 @@ export default function ProfileScreen() {
         setUniversity(p?.university || '')
         setCity(p?.city || '')
         setPhoto(p?.photo || null)
-      } catch (err) {
+      } catch {
         console.log('No profile yet')
       }
     }
@@ -94,7 +95,12 @@ export default function ProfileScreen() {
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>My Profile</Text>
 
-      <TouchableOpacity style={styles.avatarContainer} onPress={pickImage}>
+      {/* PROFILE PHOTO */}
+      <TouchableOpacity
+        style={styles.avatarContainer}
+        onPress={pickImage}
+        disabled={saving}
+      >
         <Image
           source={{
             uri:
@@ -106,6 +112,7 @@ export default function ProfileScreen() {
         <Text style={styles.editPhoto}>Edit Photo</Text>
       </TouchableOpacity>
 
+      {/* PROGRESS */}
       <View style={styles.progressBar}>
         <View
           style={[
@@ -118,6 +125,7 @@ export default function ProfileScreen() {
         Profile completion: {Math.round(completion * 100)}%
       </Text>
 
+      {/* ABOUT */}
       <Text style={styles.label}>About Me *</Text>
       <TextInput
         style={[styles.input, styles.textArea]}
@@ -130,6 +138,7 @@ export default function ProfileScreen() {
         {about.length}/{MAX_ABOUT_LENGTH}
       </Text>
 
+      {/* UNIVERSITY */}
       <Text style={styles.label}>University *</Text>
       <TextInput
         style={styles.input}
@@ -137,6 +146,7 @@ export default function ProfileScreen() {
         onChangeText={setUniversity}
       />
 
+      {/* CITY */}
       <Text style={styles.label}>City *</Text>
       <TextInput
         style={styles.input}
@@ -144,44 +154,99 @@ export default function ProfileScreen() {
         onChangeText={setCity}
       />
 
+      {/* SAVE BUTTON */}
       <TouchableOpacity
-        style={[styles.button, saving && { opacity: 0.6 }]}
+        style={[styles.button, saving && styles.buttonDisabled]}
         onPress={saveProfile}
         disabled={saving}
       >
-        <Text style={styles.buttonText}>
-          {saving ? 'Saving...' : 'Save Profile'}
-        </Text>
+        {saving ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.buttonText}>Save Profile</Text>
+        )}
       </TouchableOpacity>
     </ScrollView>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 20, backgroundColor: '#f9fafb', flexGrow: 1 },
-  title: { fontSize: 26, fontWeight: '700', marginBottom: 20 },
-  avatarContainer: { alignItems: 'center', marginBottom: 20 },
-  avatar: { width: 120, height: 120, borderRadius: 60 },
-  editPhoto: { marginTop: 6, color: '#555' },
-  progressBar: { height: 8, backgroundColor: '#e5e7eb', borderRadius: 4 },
-  progressFill: { height: '100%', backgroundColor: '#000' },
-  progressText: { fontSize: 12, marginBottom: 20 },
-  label: { fontWeight: '600', marginBottom: 6 },
+  container: {
+    padding: 20,
+    backgroundColor: '#0b0b0f',
+    flexGrow: 1,
+  },
+  title: {
+    fontSize: 26,
+    fontWeight: '700',
+    marginBottom: 20,
+    color: '#fff',
+  },
+  avatarContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  avatar: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#1f2937',
+  },
+  editPhoto: {
+    marginTop: 6,
+    color: '#9ca3af',
+  },
+  progressBar: {
+    height: 8,
+    backgroundColor: '#1f2937',
+    borderRadius: 4,
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#22c55e',
+  },
+  progressText: {
+    fontSize: 12,
+    marginBottom: 20,
+    color: '#9ca3af',
+  },
+  label: {
+    fontWeight: '600',
+    marginBottom: 6,
+    color: '#e5e7eb',
+  },
   input: {
-    backgroundColor: '#fff',
+    backgroundColor: '#111827',
     borderRadius: 12,
     padding: 14,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: '#1f2937',
+    color: '#fff',
   },
-  textArea: { height: 120 },
-  charCount: { textAlign: 'right', fontSize: 12 },
+  textArea: {
+    height: 120,
+    textAlignVertical: 'top',
+  },
+  charCount: {
+    textAlign: 'right',
+    fontSize: 12,
+    color: '#6b7280',
+  },
   button: {
-    backgroundColor: '#000',
+    backgroundColor: '#22c55e',
     padding: 16,
     borderRadius: 14,
     alignItems: 'center',
+    marginTop: 10,
   },
-  buttonText: { color: '#fff', fontWeight: '600' },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  buttonText: {
+    color: '#000',
+    fontWeight: '700',
+    fontSize: 16,
+  },
 })
+

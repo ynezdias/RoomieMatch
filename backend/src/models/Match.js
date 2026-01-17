@@ -5,4 +5,14 @@ const matchSchema = new mongoose.Schema({
   createdAt: Date,
 });
 
-module.exports = mongoose.model('Match', matchSchema);
+
+module.exports = mongoose.model(
+  'Match',
+  new mongoose.Schema(
+    {
+      users: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    },
+    { timestamps: true }
+  )
+)
+

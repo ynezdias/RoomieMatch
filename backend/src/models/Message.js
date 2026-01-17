@@ -20,4 +20,14 @@ const messageSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-module.exports = mongoose.model('Message', messageSchema);
+module.exports = mongoose.model(
+  'Message',
+  new mongoose.Schema(
+    {
+      matchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Match' },
+      sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      text: String,
+    },
+    { timestamps: true }
+  )
+)

@@ -1,18 +1,26 @@
-const express = require('express');
-const Message = require('../models/Message');
-const auth = require('../middleware/authMiddleware');
+const router = require('express').Router()
+const Message = require('../models/Message')
+const Match = require('../models/Match')
 
-const router = express.Router();
+router.get('/matches', async (req, res) => {
+  const userId = req.user.id
 
-/**
- * Get messages for a match
- */
-router.get('/:matchId', auth, async (req, res) => {
-  const messages = await Message.find({ matchId: req.params.matchId })
-    .populate('sender', 'name')
-    .sort({ createdAt: 1 });
+  const matches = await Match.find({ users: userId }).populate('users')
 
-  res.json(messages);
-});
+  const formatted = matches.map((m) => ({
+    _id: m._id,
+    otherUser: m.users.find((u) => u._id.toString() !== userId),
+  }))
 
-module.exports = router;
+  res.json(formatted)
+})
+
+router.get('/:matchId', async (req, res) => {
+  const messages = await Message.find({
+    matchId: req.params.matchId,
+  }).sort({ createdAt: 1 })
+
+  res.json(messages)
+})
+
+module.exports = router

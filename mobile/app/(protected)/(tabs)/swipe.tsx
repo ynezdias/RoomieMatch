@@ -16,33 +16,39 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'expo-router'
 import api from '@/services/api'
-import { connectSocket } from '../../../src/sockets'
-import { useAuth } from '../../../src/context/AuthContext'
-
+import { connectSocket } from '@/src/sockets'
+import { useAuth } from '@/src/context/AuthContext'
 
 const SCREEN_WIDTH = Dimensions.get('window').width
 
 export default function SwipeScreen() {
   const router = useRouter()
+  const { user } = useAuth()
 
   const [profiles, setProfiles] = useState<any[]>([])
   const [matchVisible, setMatchVisible] = useState(false)
 
   const translateX = useSharedValue(0)
-
-  // 🔥 MATCH ANIMATION VALUES
   const matchScale = useSharedValue(0.5)
   const matchOpacity = useSharedValue(0)
-const { user } = useAuth()
 
-  /* ===================== FETCH PROFILES ===================== */
+  /* ===================== GUARD ===================== */
+
+  if (!user) {
+    return (
+      <View style={styles.center}>
+        <Text>Loading...</Text>
+      </View>
+    )
+  }
+
+  /* ===================== FETCH ===================== */
 
   const fetchProfiles = async () => {
     try {
-      const res = await api.get('/users/suggestions')
+      const res = await api.get('/api/swipe/suggestions')
       setProfiles(res.data || [])
     } catch (err: any) {
-      // 🔒 Force profile completion
       if (err.response?.status === 403) {
         router.replace('/(protected)/(tabs)/profile')
       } else {
@@ -58,42 +64,28 @@ const { user } = useAuth()
   /* ===================== SOCKET ===================== */
 
   useEffect(() => {
-    let mounted = true
+    connectSocket(user._id).then((sock) => {
+      if (!sock) return
+      sock.on('newMatch', triggerMatch)
+    })
+  }, [user._id])
 
-useEffect(() => {
-  if (!user?._id) return
-
-  connectSocket(user._id).then((sock) => {
-    if (!sock) return
-    sock.on('newMatch', triggerMatch)
-  })
-}, [user])
-
-    return () => {
-      mounted = false
-    }
-  }, [])
-
-  /* ===================== MATCH TRIGGER ===================== */
+  /* ===================== MATCH ===================== */
 
   const triggerMatch = () => {
     setMatchVisible(true)
-
-    matchScale.value = 0.5
-    matchOpacity.value = 0
-
-    matchScale.value = withSpring(1.2)
+    matchScale.value = withSpring(1)
     matchOpacity.value = withSpring(1)
   }
 
-  /* ===================== SWIPE HANDLER ===================== */
+  /* ===================== SWIPE ===================== */
 
   const handleSwipe = async (
     direction: 'left' | 'right',
     targetId: string
   ) => {
     try {
-      const res = await api.post('/swipe', {
+      const res = await api.post('/api/swipe', {
         targetUserId: targetId,
         direction,
       })
@@ -109,8 +101,6 @@ useEffect(() => {
     translateX.value = 0
   }
 
-  /* ===================== GESTURE ===================== */
-
   const panGesture = Gesture.Pan()
     .onUpdate((e) => {
       translateX.value = e.translationX
@@ -119,10 +109,8 @@ useEffect(() => {
       if (!profiles.length) return
 
       if (translateX.value > 120) {
-        translateX.value = withSpring(SCREEN_WIDTH)
         runOnJS(handleSwipe)('right', profiles[0]._id)
       } else if (translateX.value < -120) {
-        translateX.value = withSpring(-SCREEN_WIDTH)
         runOnJS(handleSwipe)('left', profiles[0]._id)
       } else {
         translateX.value = withSpring(0)
@@ -133,12 +121,10 @@ useEffect(() => {
     transform: [{ translateX: translateX.value }],
   }))
 
-  const matchAnimatedStyle = useAnimatedStyle(() => ({
+  const matchStyle = useAnimatedStyle(() => ({
     opacity: matchOpacity.value,
     transform: [{ scale: matchScale.value }],
   }))
-
-  /* ===================== EMPTY STATE ===================== */
 
   if (!profiles.length) {
     return (
@@ -148,58 +134,34 @@ useEffect(() => {
     )
   }
 
-  /* ===================== UI ===================== */
-
   return (
     <View style={styles.container}>
-      {profiles
-        .slice(0, 2)
-        .reverse()
-        .map((user, index) => {
-          const isTop = index === 1
+      {profiles.slice(0, 2).reverse().map((p, i) => (
+        <GestureDetector
+          key={p._id}
+          gesture={i === 1 ? panGesture : Gesture.Tap()}
+        >
+          <Animated.View
+            style={[
+              styles.card,
+              i === 1 && animatedStyle,
+              { top: i * 12 },
+            ]}
+          >
+            <Text style={styles.name}>{p.name}</Text>
+            <Text style={styles.sub}>{p.university}</Text>
+            <Text style={styles.sub}>{p.city}</Text>
+          </Animated.View>
+        </GestureDetector>
+      ))}
 
-          return (
-            <GestureDetector
-              key={user._id}
-              gesture={isTop ? panGesture : Gesture.Tap()}
-            >
-              <Animated.View
-                style={[
-                  styles.card,
-                  isTop && animatedStyle,
-                  { top: index * 12 },
-                ]}
-              >
-                <Text style={styles.name}>{user.name}</Text>
-                <Text style={styles.sub}>{user.university}</Text>
-
-                {user.budget?.min != null &&
-                  user.budget?.max != null && (
-                    <Text style={styles.sub}>
-                      ${user.budget.min} – ${user.budget.max}
-                    </Text>
-                  )}
-              </Animated.View>
-            </GestureDetector>
-          )
-        })}
-
-      {/* ===================== TINDER MATCH MODAL ===================== */}
-
-      <Modal visible={matchVisible} transparent animationType="none">
+      <Modal visible={matchVisible} transparent>
         <View style={styles.modal}>
-          <Animated.View style={matchAnimatedStyle}>
+          <Animated.View style={matchStyle}>
             <Text style={styles.heart}>❤️</Text>
-            <Text style={styles.matchText}>IT’S A MATCH!</Text>
-
-            <Pressable
-              onPress={() => {
-                matchOpacity.value = withSpring(0)
-                matchScale.value = withSpring(0.5)
-                setTimeout(() => setMatchVisible(false), 250)
-              }}
-            >
-              <Text style={styles.close}>Continue Swiping</Text>
+            <Text style={styles.match}>IT’S A MATCH!</Text>
+            <Pressable onPress={() => setMatchVisible(false)}>
+              <Text style={styles.continue}>Continue</Text>
             </Pressable>
           </Animated.View>
         </View>
@@ -208,20 +170,9 @@ useEffect(() => {
   )
 }
 
-/* ===================== STYLES ===================== */
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  container: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   card: {
     position: 'absolute',
     width: '90%',
@@ -231,38 +182,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 6,
-    padding: 20,
   },
-  name: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  sub: {
-    fontSize: 16,
-    color: '#555',
-  },
+  name: { fontSize: 26, fontWeight: 'bold' },
+  sub: { color: '#666', marginTop: 4 },
   modal: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.85)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  heart: {
-    fontSize: 100,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  matchText: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  close: {
-    fontSize: 18,
-    color: '#fff',
-    textAlign: 'center',
-  },
+  heart: { fontSize: 100 },
+  match: { fontSize: 30, color: '#fff', marginBottom: 20 },
+  continue: { color: '#fff', fontSize: 18 },
 })

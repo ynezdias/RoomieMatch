@@ -1,26 +1,28 @@
-const router = require('express').Router()
-const Match = require('../models/Match')
+const express = require('express')
+const router = express.Router()
+const Profile = require('../models/Profile')
+const auth = require('../middleware/authMiddleware')
 
-router.post('/', async (req, res) => {
-  const { targetUserId, direction } = req.body
-  const userId = req.user.id
+/**
+ * GET SWIPE SUGGESTIONS
+ * Returns all profiles EXCEPT current user's profile
+ */
+router.get('/suggestions', auth, async (req, res) => {
+  try {
+    console.log('🔥 SWIPE SUGGESTIONS HIT')
+    console.log('USER ID:', req.user.id)
 
-  if (direction === 'right') {
-    const existing = await Match.findOne({
-      users: { $all: [userId, targetUserId] },
-    })
+    const profiles = await Profile.find({
+      userId: { $ne: req.user.id },
+    }).populate('userId', 'name email')
 
-    if (!existing) {
-      const match = await Match.create({
-        users: [userId, targetUserId],
-      })
+    console.log('FOUND PROFILES:', profiles.length)
 
-      req.io.to(targetUserId).emit('newMatch')
-      return res.json({ match: true })
-    }
+    res.json(profiles)
+  } catch (err) {
+    console.error('❌ SWIPE ERROR:', err)
+    res.status(500).json({ message: err.message })
   }
-
-  res.json({ match: false })
 })
 
 module.exports = router

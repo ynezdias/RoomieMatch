@@ -32,4 +32,21 @@ router.get('/me', auth, async (req, res) => {
   res.json(profile)
 })
 
+/* ================= GET PROFILES FOR EXPLORE ================= */
+router.get('/explore', auth, async (req, res) => {
+  try {
+    const profiles = await Profile.find({
+      userId: { $ne: req.user.id }, // exclude self
+      aboutMe: { $exists: true, $ne: '' },
+      university: { $exists: true, $ne: '' },
+      city: { $exists: true, $ne: '' },
+    }).populate('userId', 'name email')
+
+    res.json(profiles)
+  } catch (err) {
+    console.error('❌ EXPLORE ERROR:', err)
+    res.status(500).json({ message: err.message })
+  }
+})
+
 module.exports = router

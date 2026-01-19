@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken')
 
 module.exports = (req, res, next) => {
   const authHeader = req.headers.authorization
+
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ message: 'No token' })
   }
@@ -10,9 +11,16 @@ module.exports = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET)
-    req.user = { id: decoded.id } // MUST match route usage
+
+    req.user = {
+      id: decoded.id,
+    }
+
+    console.log('✅ AUTH USER SET:', req.user)
+
     next()
-  } catch {
+  } catch (err) {
+    console.error('❌ JWT ERROR:', err.message)
     res.status(401).json({ message: 'Invalid token' })
   }
 }

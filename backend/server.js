@@ -1,4 +1,4 @@
-require('dotenv').config()
+require('dotenv').config() // ✅ MUST BE FIRST LINE
 
 const http = require('http')
 const mongoose = require('mongoose')

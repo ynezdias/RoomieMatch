@@ -24,13 +24,15 @@ export default function ProfileScreen() {
   const [city, setCity] = useState('')
   const [photo, setPhoto] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   /* ===================== LOAD PROFILE ===================== */
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        const res = await api.get('/api/profile/me')
+        const res = await api.get('/api/profile/me') // ✅ FIXED
         const p = res.data
+
         if (p) {
           setAbout(p.aboutMe || '')
           setUniversity(p.university || '')
@@ -38,9 +40,12 @@ export default function ProfileScreen() {
           setPhoto(p.photo || null)
         }
       } catch (err) {
-        console.log('No profile yet', err)
+        console.log('No profile yet')
+      } finally {
+        setLoading(false)
       }
     }
+
     loadProfile()
   }, [])
 
@@ -54,6 +59,7 @@ export default function ProfileScreen() {
       allowsEditing: true,
       quality: 0.7,
     })
+
     if (!result.canceled) {
       setPhoto(result.assets[0].uri)
     }
@@ -61,7 +67,7 @@ export default function ProfileScreen() {
 
   /* ===================== SAVE PROFILE ===================== */
   const saveProfile = async () => {
-    if (!about || !university || !city) {
+    if (!about.trim() || !university.trim() || !city.trim()) {
       Alert.alert('Incomplete Profile', 'Please fill all required fields.')
       return
     }
@@ -69,18 +75,15 @@ export default function ProfileScreen() {
     try {
       setSaving(true)
 
-      // ⚡ PUT request to save profile
       const res = await api.put('/api/profile', {
-        aboutMe: about,
-        university,
-        city,
+        aboutMe: about.trim(),
+        university: university.trim(),
+        city: city.trim(),
         photo,
       })
 
       if (res.status === 200) {
         Alert.alert('Success', 'Profile saved successfully')
-      } else {
-        Alert.alert('Error', 'Failed to save profile')
       }
     } catch (err: any) {
       console.log('🔥 SAVE PROFILE ERROR:', err.response?.data || err.message)
@@ -88,6 +91,14 @@ export default function ProfileScreen() {
     } finally {
       setSaving(false)
     }
+  }
+
+  if (loading) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator size="large" color="#22c55e" />
+      </View>
+    )
   }
 
   /* ===================== UI ===================== */
@@ -156,7 +167,7 @@ export default function ProfileScreen() {
         disabled={saving}
       >
         {saving ? (
-          <ActivityIndicator color="#fff" />
+          <ActivityIndicator color="#000" />
         ) : (
           <Text style={styles.buttonText}>Save Profile</Text>
         )}
@@ -170,6 +181,11 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: '#0b0b0f',
     flexGrow: 1,
+  },
+  loading: {
+    flex: 1,
+    justifyContent: 'center',
+    backgroundColor: '#0b0b0f',
   },
   title: {
     fontSize: 26,

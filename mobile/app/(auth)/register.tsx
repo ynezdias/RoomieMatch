@@ -1,7 +1,7 @@
 import { View, Text, TextInput, TouchableOpacity } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useState } from 'react'
-import api from '../services/api'
+import api from '../../services/api'
 
 export default function Register() {
   const router = useRouter()

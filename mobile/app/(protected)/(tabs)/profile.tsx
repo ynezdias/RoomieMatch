@@ -14,10 +14,11 @@ import * as ImagePicker from 'expo-image-picker'
 import api from '../../../services/api'
 import { useAuth } from '../../../src/context/AuthContext'
 
-const MAX_ABOUT_LENGTH = 200
+const CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME!
+const UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET!
 
 export default function ProfileScreen() {
-  const { user } = useAuth()
+  const { user, logout } = useAuth()
 
   const [about, setAbout] = useState('')
   const [university, setUniversity] = useState('')
@@ -26,92 +27,90 @@ export default function ProfileScreen() {
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
 
-  /* ===================== LOAD PROFILE ===================== */
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        const res = await api.get('/api/profile/me') // ✅ FIXED
+        const res = await api.get('/api/profile/me')
         const p = res.data
-
         if (p) {
           setAbout(p.aboutMe || '')
           setUniversity(p.university || '')
           setCity(p.city || '')
           setPhoto(p.photo || null)
         }
-      } catch (err) {
-        console.log('No profile yet')
       } finally {
         setLoading(false)
       }
     }
-
     loadProfile()
   }, [])
 
-  const completion =
-    [about, university, city, photo].filter(Boolean).length / 4
+  const uploadToCloudinary = async (uri: string) => {
+    const data = new FormData()
+    data.append('file', {
+      uri,
+      type: 'image/jpeg',
+      name: 'profile.jpg',
+    } as any)
+    data.append('upload_preset', UPLOAD_PRESET)
 
-  /* ===================== IMAGE PICKER ===================== */
+    const res = await fetch(
+      `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
+      {
+        method: 'POST',
+        body: data,
+      }
+    )
+
+    const json = await res.json()
+    return json.secure_url
+  }
+
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       quality: 0.7,
     })
 
     if (!result.canceled) {
-      setPhoto(result.assets[0].uri)
+      const cloudUrl = await uploadToCloudinary(result.assets[0].uri)
+      setPhoto(cloudUrl)
     }
   }
 
-  /* ===================== SAVE PROFILE ===================== */
   const saveProfile = async () => {
-    if (!about.trim() || !university.trim() || !city.trim()) {
-      Alert.alert('Incomplete Profile', 'Please fill all required fields.')
+    if (!about || !university || !city) {
+      Alert.alert('Fill all fields')
       return
     }
 
     try {
       setSaving(true)
-
-      const res = await api.put('/api/profile', {
-        aboutMe: about.trim(),
-        university: university.trim(),
-        city: city.trim(),
+      await api.put('/api/profile', {
+        aboutMe: about,
+        university,
+        city,
         photo,
       })
-
-      if (res.status === 200) {
-        Alert.alert('Success', 'Profile saved successfully')
-      }
-    } catch (err: any) {
-      console.log('🔥 SAVE PROFILE ERROR:', err.response?.data || err.message)
-      Alert.alert('Error', 'Failed to save profile')
+      Alert.alert('Saved!')
+    } catch {
+      Alert.alert('Error saving profile')
     } finally {
       setSaving(false)
     }
   }
 
   if (loading) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="large" color="#22c55e" />
-      </View>
-    )
+    return <ActivityIndicator style={{ flex: 1 }} />
   }
 
-  /* ===================== UI ===================== */
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>My Profile</Text>
+      <TouchableOpacity style={styles.logout} onPress={logout}>
+        <Text style={{ color: '#ef4444' }}>Logout</Text>
+      </TouchableOpacity>
 
-      {/* PROFILE PHOTO */}
-      <TouchableOpacity
-        style={styles.avatarContainer}
-        onPress={pickImage}
-        disabled={saving}
-      >
+      <TouchableOpacity onPress={pickImage} style={styles.avatarWrap}>
         <Image
           source={{
             uri:
@@ -120,143 +119,51 @@ export default function ProfileScreen() {
           }}
           style={styles.avatar}
         />
-        <Text style={styles.editPhoto}>Edit Photo</Text>
+        <Text style={{ color: '#9ca3af' }}>Change photo</Text>
       </TouchableOpacity>
 
-      {/* PROGRESS */}
-      <View style={styles.progressBar}>
-        <View style={[styles.progressFill, { width: `${completion * 100}%` }]} />
-      </View>
-      <Text style={styles.progressText}>
-        Profile completion: {Math.round(completion * 100)}%
-      </Text>
-
-      {/* ABOUT */}
-      <Text style={styles.label}>About Me *</Text>
       <TextInput
-        style={[styles.input, styles.textArea]}
-        multiline
-        maxLength={MAX_ABOUT_LENGTH}
+        placeholder="About me"
         value={about}
         onChangeText={setAbout}
-      />
-      <Text style={styles.charCount}>
-        {about.length}/{MAX_ABOUT_LENGTH}
-      </Text>
-
-      {/* UNIVERSITY */}
-      <Text style={styles.label}>University *</Text>
-      <TextInput
         style={styles.input}
+      />
+      <TextInput
+        placeholder="University"
         value={university}
         onChangeText={setUniversity}
-      />
-
-      {/* CITY */}
-      <Text style={styles.label}>City *</Text>
-      <TextInput
         style={styles.input}
+      />
+      <TextInput
+        placeholder="City"
         value={city}
         onChangeText={setCity}
+        style={styles.input}
       />
 
-      {/* SAVE BUTTON */}
-      <TouchableOpacity
-        style={[styles.button, saving && styles.buttonDisabled]}
-        onPress={saveProfile}
-        disabled={saving}
-      >
-        {saving ? (
-          <ActivityIndicator color="#000" />
-        ) : (
-          <Text style={styles.buttonText}>Save Profile</Text>
-        )}
+      <TouchableOpacity style={styles.save} onPress={saveProfile}>
+        {saving ? <ActivityIndicator /> : <Text>Save</Text>}
       </TouchableOpacity>
     </ScrollView>
   )
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 20,
-    backgroundColor: '#0b0b0f',
-    flexGrow: 1,
-  },
-  loading: {
-    flex: 1,
-    justifyContent: 'center',
-    backgroundColor: '#0b0b0f',
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    marginBottom: 20,
-    color: '#fff',
-  },
-  avatarContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#1f2937',
-  },
-  editPhoto: {
-    marginTop: 6,
-    color: '#9ca3af',
-  },
-  progressBar: {
-    height: 8,
-    backgroundColor: '#1f2937',
-    borderRadius: 4,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#22c55e',
-  },
-  progressText: {
-    fontSize: 12,
-    marginBottom: 20,
-    color: '#9ca3af',
-  },
-  label: {
-    fontWeight: '600',
-    marginBottom: 6,
-    color: '#e5e7eb',
-  },
+  container: { padding: 20, backgroundColor: '#0b0b0f', flexGrow: 1 },
+  logout: { alignSelf: 'flex-end', marginBottom: 10 },
+  avatarWrap: { alignItems: 'center', marginBottom: 20 },
+  avatar: { width: 120, height: 120, borderRadius: 60 },
   input: {
     backgroundColor: '#111827',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#1f2937',
     color: '#fff',
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 12,
   },
-  textArea: {
-    height: 120,
-    textAlignVertical: 'top',
-  },
-  charCount: {
-    textAlign: 'right',
-    fontSize: 12,
-    color: '#6b7280',
-  },
-  button: {
+  save: {
     backgroundColor: '#22c55e',
     padding: 16,
-    borderRadius: 14,
+    borderRadius: 12,
     alignItems: 'center',
-    marginTop: 10,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: '#000',
-    fontWeight: '700',
-    fontSize: 16,
   },
 })

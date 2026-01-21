@@ -23,7 +23,7 @@ const SCREEN_WIDTH = Dimensions.get('window').width
 
 export default function SwipeScreen() {
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
 
   const [profiles, setProfiles] = useState<any[]>([])
   const [matchVisible, setMatchVisible] = useState(false)
@@ -34,7 +34,7 @@ export default function SwipeScreen() {
 
   /* ===================== GUARD ===================== */
 
-  if (!user) {
+  if (loading) {
     return (
       <View style={styles.center}>
         <Text>Loading...</Text>
@@ -42,11 +42,13 @@ export default function SwipeScreen() {
     )
   }
 
+
   /* ===================== FETCH ===================== */
 
   const fetchProfiles = async () => {
     try {
-      const res = await api.get('/api/swipe/suggestions')
+      // ✅ FIXED PATH (NO /api HERE)
+      const res = await api.get('/swipe/suggestions')
       setProfiles(res.data || [])
     } catch (err: any) {
       if (err.response?.status === 403) {
@@ -64,11 +66,13 @@ export default function SwipeScreen() {
   /* ===================== SOCKET ===================== */
 
   useEffect(() => {
+    if (!user?._id) return
+
     connectSocket(user._id).then((sock) => {
       if (!sock) return
       sock.on('newMatch', triggerMatch)
     })
-  }, [user._id])
+  }, [user?._id])
 
   /* ===================== MATCH ===================== */
 
@@ -85,7 +89,8 @@ export default function SwipeScreen() {
     targetId: string
   ) => {
     try {
-      const res = await api.post('/api/swipe', {
+      // ✅ FIXED PATH
+      const res = await api.post('/swipe', {
         targetUserId: targetId,
         direction,
       })

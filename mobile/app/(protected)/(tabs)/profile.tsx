@@ -1,169 +1,95 @@
-import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-  Alert,
-  Image,
-  ActivityIndicator,
-} from 'react-native'
+import { View, Text, TextInput, TouchableOpacity, Image } from 'react-native'
 import { useEffect, useState } from 'react'
-import * as ImagePicker from 'expo-image-picker'
-import api from '../../../services/api'
 import { useAuth } from '../../../src/context/AuthContext'
-
-const CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME!
-const UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET!
+import API from '../../../services/api'
+import { Ionicons } from '@expo/vector-icons'
 
 export default function ProfileScreen() {
-  const { user, logout } = useAuth()
+  const { logout } = useAuth()
 
-  const [about, setAbout] = useState('')
-  const [university, setUniversity] = useState('')
+  const [aboutMe, setAboutMe] = useState('')
   const [city, setCity] = useState('')
-  const [photo, setPhoto] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const [university, setUniversity] = useState('')
+  const [photo, setPhoto] = useState('')
 
   useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        const res = await api.get('/api/profile/me')
-        const p = res.data
-        if (p) {
-          setAbout(p.aboutMe || '')
-          setUniversity(p.university || '')
-          setCity(p.city || '')
-          setPhoto(p.photo || null)
-        }
-      } finally {
-        setLoading(false)
-      }
-    }
     loadProfile()
   }, [])
 
-  const uploadToCloudinary = async (uri: string) => {
-    const data = new FormData()
-    data.append('file', {
-      uri,
-      type: 'image/jpeg',
-      name: 'profile.jpg',
-    } as any)
-    data.append('upload_preset', UPLOAD_PRESET)
-
-    const res = await fetch(
-      `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
-      {
-        method: 'POST',
-        body: data,
-      }
-    )
-
-    const json = await res.json()
-    return json.secure_url
-  }
-
-  const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      allowsEditing: true,
-      quality: 0.7,
-    })
-
-    if (!result.canceled) {
-      const cloudUrl = await uploadToCloudinary(result.assets[0].uri)
-      setPhoto(cloudUrl)
+  const loadProfile = async () => {
+    try {
+      const res = await API.get('/profile')
+      setAboutMe(res.data.aboutMe || '')
+      setCity(res.data.city || '')
+      setUniversity(res.data.university || '')
+      setPhoto(res.data.photo || '')
+    } catch (err) {
+      console.log('PROFILE LOAD ERROR', err)
     }
   }
 
   const saveProfile = async () => {
-    if (!about || !university || !city) {
-      Alert.alert('Fill all fields')
-      return
-    }
-
     try {
-      setSaving(true)
-      await api.put('/api/profile', {
-        aboutMe: about,
-        university,
+      await API.put('/profile', {
+        aboutMe,
         city,
+        university,
         photo,
       })
-      Alert.alert('Saved!')
-    } catch {
-      Alert.alert('Error saving profile')
-    } finally {
-      setSaving(false)
+      alert('Profile saved!')
+    } catch (err) {
+      console.log('PROFILE SAVE ERROR', err)
     }
-  }
-
-  if (loading) {
-    return <ActivityIndicator style={{ flex: 1 }} />
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <TouchableOpacity style={styles.logout} onPress={logout}>
-        <Text style={{ color: '#ef4444' }}>Logout</Text>
+    <View style={{ flex: 1, padding: 20 }}>
+      {/* LOGOUT BUTTON */}
+      <TouchableOpacity
+        onPress={logout}
+        style={{ position: 'absolute', top: 40, right: 20 }}
+      >
+        <Ionicons name="log-out-outline" size={26} color="red" />
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={pickImage} style={styles.avatarWrap}>
+      <Text style={{ fontSize: 26, marginBottom: 20 }}>Your Profile</Text>
+
+      {photo ? (
         <Image
-          source={{
-            uri:
-              photo ||
-              `https://ui-avatars.com/api/?name=${user?.name || 'User'}`,
-          }}
-          style={styles.avatar}
+          source={{ uri: photo }}
+          style={{ width: 120, height: 120, borderRadius: 60, marginBottom: 20 }}
         />
-        <Text style={{ color: '#9ca3af' }}>Change photo</Text>
-      </TouchableOpacity>
+      ) : null}
 
       <TextInput
-        placeholder="About me"
-        value={about}
-        onChangeText={setAbout}
-        style={styles.input}
+        placeholder="About Me"
+        value={aboutMe}
+        onChangeText={setAboutMe}
+        style={{ borderWidth: 1, padding: 10, marginBottom: 10 }}
       />
-      <TextInput
-        placeholder="University"
-        value={university}
-        onChangeText={setUniversity}
-        style={styles.input}
-      />
+
       <TextInput
         placeholder="City"
         value={city}
         onChangeText={setCity}
-        style={styles.input}
+        style={{ borderWidth: 1, padding: 10, marginBottom: 10 }}
       />
 
-      <TouchableOpacity style={styles.save} onPress={saveProfile}>
-        {saving ? <ActivityIndicator /> : <Text>Save</Text>}
+      <TextInput
+        placeholder="University"
+        value={university}
+        onChangeText={setUniversity}
+        style={{ borderWidth: 1, padding: 10, marginBottom: 20 }}
+      />
+
+      <TouchableOpacity
+        onPress={saveProfile}
+        style={{ backgroundColor: 'black', padding: 15 }}
+      >
+        <Text style={{ color: 'white', textAlign: 'center' }}>
+          Save Profile
+        </Text>
       </TouchableOpacity>
-    </ScrollView>
+    </View>
   )
 }
-
-const styles = StyleSheet.create({
-  container: { padding: 20, backgroundColor: '#0b0b0f', flexGrow: 1 },
-  logout: { alignSelf: 'flex-end', marginBottom: 10 },
-  avatarWrap: { alignItems: 'center', marginBottom: 20 },
-  avatar: { width: 120, height: 120, borderRadius: 60 },
-  input: {
-    backgroundColor: '#111827',
-    color: '#fff',
-    padding: 14,
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  save: {
-    backgroundColor: '#22c55e',
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-})

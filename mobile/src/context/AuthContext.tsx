@@ -8,8 +8,8 @@ type User = {
 }
 
 type AuthContextType = {
-  user: User | null
   token: string | null
+  user: User | null
   login: (token: string, user: User) => Promise<void>
   logout: () => Promise<void>
   loading: boolean
@@ -27,14 +27,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const storedToken = await AsyncStorage.getItem('token')
       const storedUser = await AsyncStorage.getItem('user')
 
-      if (storedToken && storedUser) {
-        setToken(storedToken)
-        setUser(JSON.parse(storedUser))
-      }
+      if (storedToken) setToken(storedToken)
+      if (storedUser) setUser(JSON.parse(storedUser))
 
       setLoading(false)
     }
-
     loadAuth()
   }, [])
 
@@ -56,16 +53,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, loading }}>
+    <AuthContext.Provider value={{ token, user, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   )
 }
 
 export const useAuth = () => {
-  const context = useContext(AuthContext)
-  if (!context) {
+  const ctx = useContext(AuthContext)
+  if (!ctx) {
     throw new Error('useAuth must be used within AuthProvider')
   }
-  return context
+  return ctx
 }

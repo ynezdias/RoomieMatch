@@ -35,7 +35,7 @@ export default function ChatScreen() {
 
   const loadMessages = async () => {
     try {
-      const res = await api.get(`/api/chat/${matchId}`)
+      const res = await api.get(`/chat/${matchId}`)
       setMessages(res.data)
     } catch (err) {
       console.log('❌ LOAD CHAT ERROR', err)

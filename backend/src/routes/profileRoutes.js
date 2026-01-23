@@ -3,15 +3,32 @@ const router = express.Router()
 const Profile = require('../models/Profile')
 const auth = require('../middleware/authMiddleware')
 
+const cloudinary = require('../config/cloudinary')
+
 router.put('/', auth, async (req, res) => {
   console.log('🔥 PROFILE ROUTE HIT')
-  console.log('req.user:', req.user)
-  console.log('req.body:', req.body)
 
   try {
+    let profileData = { ...req.body, userId: req.user.id }
+
+    // Upload photo if present and is a base64 string (starts with data:image)
+    if (req.body.photo && req.body.photo.startsWith('data:image')) {
+      try {
+        const uploadRes = await cloudinary.uploader.upload(req.body.photo, {
+          folder: 'roomiematch_profiles',
+        })
+        profileData.photo = uploadRes.secure_url
+        console.log('☁️ Uploaded to Cloudinary:', uploadRes.secure_url)
+      } catch (uploadErr) {
+        console.error('❌ Cloudinary Upload Error:', uploadErr)
+        // Proceed without failing completely, or default to old photo?
+        // For now, let's just log it.
+      }
+    }
+
     const profile = await Profile.findOneAndUpdate(
       { userId: req.user.id },
-      { ...req.body, userId: req.user.id },
+      profileData,
       {
         new: true,
         upsert: true,

@@ -11,12 +11,12 @@ export default function Register() {
 
   const handleRegister = async () => {
     try {
-      await api.post('/api/auth/register', {
+      await api.post('/auth/register', {
         name,
         email,
         password,
       })
-      await api.post('/api/auth/login', { email, password })
+      await api.post('/auth/login', { email, password })
 
       alert('Account created. Please login.')
       router.replace('/')

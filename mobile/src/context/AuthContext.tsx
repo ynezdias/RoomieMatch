@@ -4,6 +4,7 @@ import { router } from 'expo-router'
 
 type User = {
   id: string
+  _id: string // MongoDB ID
   email: string
 }
 

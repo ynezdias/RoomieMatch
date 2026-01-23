@@ -1,16 +1,23 @@
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
+import { useAuth } from '../src/context/AuthContext';
+import api from '../services/api';
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { login } = useAuth(); // Use the auth hook
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  const handleLogin = () => {
-    console.log('Login Pressed');
-    // TEMP: skip backend auth for now
-    router.replace('/(protected)/(tabs)/swipe');
+  const handleLogin = async () => {
+    try {
+      const res = await api.post('/auth/login', { email, password });
+      await login(res.data.token, res.data.user);
+    } catch (err: any) {
+      console.log('LOGIN ERROR:', err.response?.data || err.message);
+      alert(JSON.stringify(err.response?.data || err.message));
+    }
   };
 
   return (

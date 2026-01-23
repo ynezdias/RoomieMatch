@@ -33,7 +33,7 @@ export default function SwipeScreen() {
 
   const fetchProfiles = async () => {
     try {
-      const res = await api.get('/api/swipe/suggestions')
+      const res = await api.get('/swipe/suggestions')
       setProfiles(res.data || [])
     } catch (err) {
       console.log('❌ FETCH PROFILES ERROR', err)
@@ -61,7 +61,7 @@ export default function SwipeScreen() {
     targetId: string
   ) => {
     try {
-      const res = await api.post('/api/swipe', {
+      const res = await api.post('/swipe', {
         targetUserId: targetId,
         direction,
       })

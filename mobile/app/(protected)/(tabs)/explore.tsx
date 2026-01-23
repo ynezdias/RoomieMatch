@@ -21,7 +21,7 @@ export default function ExploreScreen() {
   useEffect(() => {
     const loadProfiles = async () => {
       try {
-        const res = await api.get('/api/profile/explore')
+        const res = await api.get('/profile/explore')
         setProfiles(res.data)
         setFiltered(res.data)
       } catch (err) {

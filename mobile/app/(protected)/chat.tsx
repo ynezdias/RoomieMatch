@@ -14,7 +14,8 @@ import { useAuth } from '@/src/context/AuthContext'
 
 export default function ChatScreen() {
   const { user } = useAuth()
-  const { matchId } = useLocalSearchParams<{ matchId: string }>()
+  const { matchId } = useLocalSearchParams() // Remove generic if causing issues, or verify type
+  // const { matchId } = useLocalSearchParams<{ matchId: string }>() // This is fine usually
 
   const [messages, setMessages] = useState<any[]>([])
   const [text, setText] = useState('')

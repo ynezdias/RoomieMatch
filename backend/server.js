@@ -8,13 +8,35 @@ const jwt = require('jsonwebtoken')
 const app = require('./src/app')
 
 /* ===================== DATABASE ===================== */
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => console.log('✅ MongoDB connected'))
-  .catch((err) => {
-    console.error('❌ MongoDB connection error:', err)
-    process.exit(1)
-  })
+/* ===================== DATABASE ===================== */
+const startServer = async () => {
+  try {
+    let mongoUri = process.env.MONGO_URI;
+
+    // Try connecting to Atlas first
+    console.log('Trying to connect to MongoDB Atlas...');
+    await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 5000 });
+    console.log('✅ MongoDB Atlas connected');
+
+  } catch (err) {
+    console.warn('⚠️ Could not connect to Atlas (likely IP whitelist issue).');
+    console.log('⚡ Switching to Local In-Memory Database (MongoDB Memory Server)...');
+
+    // Fallback to In-Memory DB
+    const { MongoMemoryServer } = require('mongodb-memory-server');
+    const mongod = await MongoMemoryServer.create();
+    const uri = mongod.getUri();
+
+    await mongoose.connect(uri);
+    console.log(`✅ Connected to In-Memory DB at ${uri}`);
+
+    // Seed data because it's empty
+    const seed = require('./src/utils/seed');
+    await seed();
+  }
+};
+
+startServer();
 
 /* ===================== ROUTES ===================== */
 app.use('/auth', require('./src/routes/authRoutes'))

@@ -15,12 +15,14 @@ import Animated, {
 } from 'react-native-reanimated'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { useEffect, useState } from 'react'
+import { useRouter } from 'expo-router'
 import api from '@/services/api'
 import { connectSocket } from '@/src/sockets'
 
 const SCREEN_WIDTH = Dimensions.get('window').width
 
 export default function SwipeScreen() {
+  const router = useRouter()
   const [profiles, setProfiles] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [matchVisible, setMatchVisible] = useState(false)
@@ -155,8 +157,23 @@ export default function SwipeScreen() {
           <Animated.View style={[styles.matchBox, matchStyle]}>
             <Text style={styles.heart}>❤️</Text>
             <Text style={styles.match}>IT’S A MATCH!</Text>
+            
+            <Pressable 
+              style={styles.messageBtn} 
+              onPress={() => {
+                setMatchVisible(false)
+                // matchId should be stored in state when match happens, but for now we might need to just go to matches list
+                // OR we can't easily jump to chat without the ID.
+                // The backend returns { match: true, matchId: ... }
+                // I need to update handleSwipe to save that ID.
+                router.push('/(protected)/(tabs)/matches' as any) 
+              }}
+            >
+              <Text style={styles.messageText}>Send a Message</Text>
+            </Pressable>
+
             <Pressable onPress={() => setMatchVisible(false)}>
-              <Text style={styles.continue}>Continue</Text>
+              <Text style={styles.continue}>Keep Swiping</Text>
             </Pressable>
           </Animated.View>
         </View>
@@ -229,8 +246,21 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   continue: {
-    color: '#22c55e',
+    color: '#9ca3af', // Change color to be less prominent
+    fontSize: 16,
+    fontWeight: '500',
+    marginTop: 10,
+  },
+  messageBtn: {
+    backgroundColor: '#22c55e',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 30,
+    marginBottom: 10,
+  },
+  messageText: {
+    color: '#fff',
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 })

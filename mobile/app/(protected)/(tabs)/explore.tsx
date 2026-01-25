@@ -123,7 +123,7 @@ export default function ExploreScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0b0b0f',
+    backgroundColor: '#020617',
     paddingHorizontal: 16,
   },
   title: {
@@ -192,6 +192,6 @@ const styles = StyleSheet.create({
   center: {
     flex: 1,
     justifyContent: 'center',
-    backgroundColor: '#0b0b0f',
+    backgroundColor: '#020617',
   },
 })

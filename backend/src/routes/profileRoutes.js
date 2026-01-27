@@ -9,21 +9,24 @@ router.put('/', auth, async (req, res) => {
   console.log('🔥 PROFILE ROUTE HIT')
 
   try {
-    let profileData = { ...req.body, userId: req.user.id }
+    const { photo, ...otherData } = req.body;
+    let profileData = { ...otherData, userId: req.user.id };
 
-    // Upload photo if present and is a base64 string (starts with data:image)
-    if (req.body.photo && req.body.photo.startsWith('data:image')) {
+    // Upload photo if present and is a base64 string
+    if (photo && photo.startsWith('data:image')) {
       try {
-        const uploadRes = await cloudinary.uploader.upload(req.body.photo, {
+        console.log('☁️ Uploading to Cloudinary...');
+        const uploadRes = await cloudinary.uploader.upload(photo, {
           folder: 'roomiematch_profiles',
         })
         profileData.photo = uploadRes.secure_url
-        console.log('☁️ Uploaded to Cloudinary:', uploadRes.secure_url)
+        console.log('✅ Cloudinary URL:', uploadRes.secure_url)
       } catch (uploadErr) {
-        console.error('❌ Cloudinary Upload Error:', uploadErr)
-        // Proceed without failing completely, or default to old photo?
-        // For now, let's just log it.
+        console.error('❌ Cloudinary Upload Error:', uploadErr.message)
       }
+    } else if (photo) {
+      // If it's already a URL, keep it
+      profileData.photo = photo;
     }
 
     const profile = await Profile.findOneAndUpdate(
@@ -36,10 +39,10 @@ router.put('/', auth, async (req, res) => {
       }
     )
 
-    console.log('✅ PROFILE SAVED:', profile)
+    console.log('💾 PROFILE SAVED/UPDATED:', profile._id, 'for User:', req.user.id)
     res.json(profile)
   } catch (err) {
-    console.error('❌ PROFILE ERROR:', err)
+    console.error('❌ PROFILE UPDATE ERROR:', err.message)
     res.status(500).json({ message: err.message })
   }
 })

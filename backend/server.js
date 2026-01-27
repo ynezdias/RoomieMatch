@@ -8,44 +8,34 @@ const jwt = require('jsonwebtoken')
 const app = require('./src/app')
 
 /* ===================== DATABASE ===================== */
-/* ===================== DATABASE ===================== */
 const startServer = async () => {
   try {
-    let mongoUri = process.env.MONGO_URI;
+    const mongoUri = process.env.MONGO_URI;
+    if (!mongoUri) {
+      throw new Error('❌ MONGO_URI is not defined in .env');
+    }
 
-    // Try connecting to Atlas first
-    console.log('Trying to connect to MongoDB Atlas...');
-    await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 5000 });
+    console.log('Connecting to MongoDB Atlas...');
+    await mongoose.connect(mongoUri, {
+      serverSelectionTimeoutMS: 5000,
+      autoIndex: true
+    });
     console.log('✅ MongoDB Atlas connected');
 
   } catch (err) {
-    console.warn('⚠️ Could not connect to Atlas (likely IP whitelist issue).');
-    console.log('⚡ Switching to Local In-Memory Database (MongoDB Memory Server)...');
-
-    // Fallback to In-Memory DB
-    const { MongoMemoryServer } = require('mongodb-memory-server');
-    const mongod = await MongoMemoryServer.create();
-    const uri = mongod.getUri();
-
-    await mongoose.connect(uri);
-    console.log(`✅ Connected to In-Memory DB at ${uri}`);
-
-    // Seed data because it's empty
-    const seed = require('./src/utils/seed');
-    await seed();
+    console.error('❌ DATABASE CONNECTION ERROR:', err.message);
+    console.error('⚠️ The server will start, but database operations will fail.');
+    console.error('👉 Please check your MONGO_URI and IP Whitelist on MongoDB Atlas.');
+    // We don't exit(1) here to let the process stay alive for debugging if needed, 
+    // but we've removed the silent in-memory fallback that causes data loss.
   }
 };
 
 startServer();
 
 /* ===================== ROUTES ===================== */
-app.use('/auth', require('./src/routes/authRoutes'))
-app.use('/users', require('./src/routes/userRoutes'))
-app.use('/swipe', require('./src/routes/swipeRoutes'))
-app.use('/chat', require('./src/routes/chatRoutes'))
-
-// 🔥 THIS WAS MISSING
-// app.use('/api/profile', require('./src/routes/profileRoutes'))
+// Routes are handled in src/app.js. No need to duplicate them here.
+// app.use('/', require('./src/app')) // Already using app from ./src/app
 
 /* ===================== SERVER ===================== */
 const server = http.createServer(app)

@@ -47,7 +47,7 @@ export default function LandingPage() {
       </View>
     </LinearGradient>
   )
-}
+}//edited
 
 const styles = StyleSheet.create({
   container: {

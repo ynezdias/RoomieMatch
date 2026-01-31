@@ -14,20 +14,27 @@ const messageSchema = new mongoose.Schema(
     },
     text: {
       type: String,
-      required: true,
+      default: '', // Can be empty if it's just media
     },
+    type: {
+      type: String,
+      enum: ['text', 'image', 'video', 'audio', 'file'],
+      default: 'text'
+    },
+    mediaUrl: {
+      type: String, // Cloudinary URL
+      default: null
+    },
+    seenBy: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    }],
+    isDeleted: {
+      type: Boolean,
+      default: false
+    }
   },
   { timestamps: true }
 );
 
-module.exports = mongoose.model(
-  'Message',
-  new mongoose.Schema(
-    {
-      matchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Match' },
-      sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-      text: String,
-    },
-    { timestamps: true }
-  )
-)
+module.exports = mongoose.model('Message', messageSchema);

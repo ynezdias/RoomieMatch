@@ -69,16 +69,79 @@ io.on('connection', (socket) => {
     socket.join(matchId)
   })
 
-  socket.on('sendMessage', async ({ matchId, text }) => {
+  // Typing Indicators
+  socket.on('typing', ({ matchId }) => {
+    socket.to(matchId).emit('typing', { userId: socket.userId, matchId });
+  });
+
+  socket.on('stopTyping', ({ matchId }) => {
+    socket.to(matchId).emit('stopTyping', { userId: socket.userId, matchId });
+  });
+
+  // Mark as Seen
+  socket.on('markSeen', async ({ matchId, messageIds }) => {
+    try {
+      const Message = require('./src/models/Message');
+      await Message.updateMany(
+        { _id: { $in: messageIds } },
+        { $addToSet: { seenBy: socket.userId } }
+      );
+
+      // Broadcast to everyone in the match (so the sender knows it was seen)
+      io.to(matchId).emit('messageSeen', {
+        matchId,
+        messageIds,
+        seenBy: socket.userId
+      });
+    } catch (error) {
+      console.error('❌ markSeen error:', error);
+    }
+  });
+
+  // Delete Message
+  socket.on('deleteMessage', async ({ matchId, messageId }) => {
+    try {
+      const Message = require('./src/models/Message');
+
+      // Soft delete
+      const msg = await Message.findOneAndUpdate(
+        { _id: messageId, sender: socket.userId }, // Ensure ownership
+        { isDeleted: true },
+        { new: true }
+      );
+
+      if (msg) {
+        io.to(matchId).emit('messageDeleted', { messageId, matchId });
+      }
+    } catch (error) {
+      console.error('❌ deleteMessage error:', error);
+    }
+  })
+
+  socket.on('sendMessage', async ({ matchId, text, type = 'text', mediaUrl = null }) => {
     const Message = require('./src/models/Message')
+    const Match = require('./src/models/Match') // Ensure Match exists if needed
 
-    const message = await Message.create({
-      matchId,
-      sender: socket.userId,
-      text,
-    })
+    try {
+      const message = await Message.create({
+        matchId,
+        sender: socket.userId,
+        text,
+        type,
+        mediaUrl
+      });
 
-    io.to(matchId).emit('newMessage', message)
+      // Populate sender details if needed by frontend immediately, 
+      // or let frontend handle it. Usually sending raw ID is faster 
+      // but if you show profile pic in chat, might need populate.
+      // For now preventing N+1 queries by just sending the doc.
+
+      io.to(matchId).emit('newMessage', message)
+
+      // Push notification logic could go here
+    } catch (err) {
+      console.error('Send Message Error:', err);
+    }
   })
 
   socket.on('disconnect', () => {

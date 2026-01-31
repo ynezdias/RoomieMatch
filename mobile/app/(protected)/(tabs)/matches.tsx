@@ -3,11 +3,13 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter, useFocusEffect } from 'expo-router'
 import api from '@/services/api'
 import { Ionicons } from '@expo/vector-icons'
+import { useTheme } from '@/src/context/ThemeContext'
 
 export default function MatchesScreen() {
   const [matches, setMatches] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const router = useRouter()
+  const { colors } = useTheme()
 
   const fetchMatches = async () => {
     try {
@@ -21,6 +23,15 @@ export default function MatchesScreen() {
     }
   }
 
+  const togglePin = async (matchId) => {
+      try {
+          await api.put(`/chat/pin/${matchId}`)
+          fetchMatches() // Refresh logic could be optimistic for better UX
+      } catch (e) {
+          console.log(e)
+      }
+  }
+
   useFocusEffect(
     useCallback(() => {
       fetchMatches()
@@ -29,43 +40,53 @@ export default function MatchesScreen() {
 
   if (loading && !matches.length) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#22c55e" />
+      <View style={[styles.center, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     )
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Matches</Text>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Text style={[styles.title, { color: colors.text }]}>Matches</Text>
 
       <FlatList
         data={matches}
         keyExtractor={(item) => item._id}
         contentContainerStyle={{ paddingBottom: 20 }}
+        refreshing={loading}
+        onRefresh={fetchMatches}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No matches yet.</Text>
+            <Text style={[styles.emptyText, { color: colors.text }]}>No matches yet.</Text>
             <Text style={styles.emptySub}>Start swiping to find roommates!</Text>
           </View>
         }
         renderItem={({ item }) => (
           <TouchableOpacity
-            style={styles.card}
+            style={[
+                styles.card, 
+                { backgroundColor: colors.secondary, borderColor: colors.border },
+                item.isPinned && { borderColor: colors.primary, borderWidth: 2 }
+            ]}
             onPress={() => router.push({
               pathname: '/(protected)/chat',
               params: { matchId: item._id }
             })}
+            onLongPress={() => togglePin(item._id)}
           >
             <Image
               source={{ uri: item.otherUser?.photo }}
               style={styles.avatar}
             />
             <View style={styles.info}>
-              <Text style={styles.name}>{item.otherUser?.name}</Text>
-              <Text style={styles.lastMsg}>{item.lastMessage}</Text>
+              <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                  <Text style={[styles.name, { color: colors.text }]}>{item.otherUser?.name}</Text>
+                  {item.isPinned && <Ionicons name="pin" size={12} color={colors.primary} style={{marginLeft: 6}} />}
+              </View>
+              <Text style={styles.lastMsg} numberOfLines={1}>{item.lastMessage}</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#4b5563" />
+            <Ionicons name="chevron-forward" size={20} color={colors.text} />
           </TouchableOpacity>
         )}
       />
@@ -76,32 +97,27 @@ export default function MatchesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#020617', // consistent dark theme
     paddingHorizontal: 16,
     paddingTop: 10,
   },
   center: {
     flex: 1,
-    backgroundColor: '#020617',
     justifyContent: 'center',
     alignItems: 'center',
   },
   title: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#f8fafc',
     marginBottom: 20,
     marginTop: 10,
   },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1e293b',
     padding: 12,
     borderRadius: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#334155',
   },
   avatar: {
     width: 56,
@@ -116,7 +132,6 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#f8fafc',
     marginBottom: 2,
   },
   lastMsg: {
@@ -130,7 +145,6 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#cbd5e1',
   },
   emptySub: {
     marginTop: 8,

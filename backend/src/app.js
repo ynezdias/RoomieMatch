@@ -23,6 +23,7 @@ app.use('/api/users', userRoutes);    // user info
 app.use('/api/profile', profileRoutes);
 app.use('/api/swipe', swipeRoutes);
 app.use('/api/chat', require('./routes/chatRoutes'));
+app.use('/api/upload', require('./routes/uploadRoutes'));
 
 /* ===== HEALTH CHECK ===== */
 app.get('/', (req, res) => {

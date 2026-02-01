@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { Image } from 'expo-image'
 import { Video, ResizeMode } from 'expo-av'
 import * as FileSystem from 'expo-file-system'
+import * as Haptics from 'expo-haptics'
 
 import api from '@/services/api'
 import { connectSocket } from '@/src/sockets'
@@ -132,6 +133,9 @@ export default function ChatScreen() {
       if (!socketRef.current) return
       if (type === 'text' && !content.trim()) return
 
+      // Haptic feedback
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+
       socketRef.current.emit('sendMessage', {
           matchId,
           text: content,
@@ -143,12 +147,16 @@ export default function ChatScreen() {
   }
 
   const deleteMessage = (messageId) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
       Alert.alert('Delete Message', 'Are you sure?', [
           { text: 'Cancel', style: 'cancel' },
           { 
               text: 'Delete', 
               style: 'destructive', 
-              onPress: () => socketRef.current.emit('deleteMessage', { matchId, messageId })
+              onPress: () => {
+                  socketRef.current.emit('deleteMessage', { matchId, messageId })
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+              }
           }
       ])
   }

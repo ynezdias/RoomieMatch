@@ -34,7 +34,7 @@ export default function LandingPage() {
       <View style={styles.buttons}>
         <TouchableOpacity
           style={styles.primaryButton}
-          onPress={() => router.push('/register')}
+          onPress={() => router.push('/onboarding')}
         >
           <Text style={styles.primaryText}>Get Started</Text>
         </TouchableOpacity>

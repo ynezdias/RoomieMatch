@@ -164,11 +164,27 @@ export default function ChatScreen() {
   const uploadMedia = async (asset, type) => {
       try {
           setUploading(true)
+          
+          let uri = asset.uri
+          let name = asset.fileName || asset.name || `upload_${Date.now()}`
+          let mimeType = asset.mimeType 
+          
+          if (!mimeType) {
+             if (type === 'video') mimeType = 'video/mp4'
+             else if (type === 'image') mimeType = 'image/jpeg'
+          }
+          
+          // Ensure extension
+          if (!name.includes('.')) {
+              const ext = mimeType?.split('/')[1] || (type === 'video' ? 'mp4' : 'jpg')
+              name = `${name}.${ext}`
+          }
+
           const formData = new FormData()
           formData.append('file', {
-              uri: asset.uri,
-              name: asset.fileName || 'upload',
-              type: type === 'video' ? 'video/mp4' : 'image/jpeg', // Simple mime logic
+              uri,
+              name,
+              type: mimeType || (type === 'video' ? 'video/mp4' : 'image/jpeg'),
           } as any)
 
           const res = await api.post('/upload', formData, {

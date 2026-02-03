@@ -270,7 +270,7 @@ export default function ChatScreen() {
         keyExtractor={(item) => item._id}
         renderItem={renderItem}
         contentContainerStyle={{ padding: 10 }}
-        inverted={false} // Depending on your API sort order. Usually DB is oldest first.
+        inverted={false} // Depending  xyz on your API sort order. Usually DB is oldest first.
         // onEndReached={() => markSeen(messages.map(m => m._id))}
       />
 

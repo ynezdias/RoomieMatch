@@ -47,7 +47,7 @@ export default function LandingPage() {
       </View>
     </LinearGradient>
   )
-}//edited
+}//edited here and do not chnage 8080
 
 const styles = StyleSheet.create({
   container: {

@@ -309,7 +309,7 @@ export default function ChatScreen() {
     </KeyboardAvoidingView>
   )
 }
-
+//edit
 const styles = StyleSheet.create({
   container: { flex: 1 },
   bubble: {

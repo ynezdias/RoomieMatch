@@ -28,7 +28,7 @@ export default function ProfileScreen() {
 
   const loadProfile = async () => {
     try {
-      const res = await API.get('/profile')
+      const res = await API.get('/profile/me')
       setAboutMe(res.data.aboutMe || '')
       setCity(res.data.city || '')
       setUniversity(res.data.university || '')

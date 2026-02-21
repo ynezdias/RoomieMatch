@@ -11,12 +11,15 @@ import {
 import { useEffect, useState } from 'react'
 import api from '../../../services/api'
 import { Ionicons } from '@expo/vector-icons'
+import ProfileOverlay from '../../../components/ui/profile-overlay'
 
 export default function ExploreScreen() {
   const [profiles, setProfiles] = useState<any[]>([])
   const [filtered, setFiltered] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [selectedProfile, setSelectedProfile] = useState<any>(null)
+  const [isModalVisible, setIsModalVisible] = useState(false)
 
   useEffect(() => {
     const loadProfiles = async () => {
@@ -84,7 +87,13 @@ export default function ExploreScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 40 }}
         renderItem={({ item }) => (
-          <TouchableOpacity style={styles.card}>
+          <TouchableOpacity
+            style={styles.card}
+            onPress={() => {
+              setSelectedProfile(item)
+              setIsModalVisible(true)
+            }}
+          >
             <Image
               source={{
                 uri:
@@ -115,6 +124,11 @@ export default function ExploreScreen() {
         ListEmptyComponent={
           <Text style={styles.empty}>No profiles found</Text>
         }
+      />
+      <ProfileOverlay
+        visible={isModalVisible}
+        profile={selectedProfile}
+        onClose={() => setIsModalVisible(false)}
       />
     </View>
   )

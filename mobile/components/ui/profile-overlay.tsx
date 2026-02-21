@@ -1,0 +1,225 @@
+import React from 'react';
+import {
+  Modal,
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  TouchableOpacity,
+  ScrollView,
+  Dimensions,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+interface ProfileOverlayProps {
+  visible: boolean;
+  onClose: () => void;
+  profile: any;
+}
+
+const ProfileOverlay: React.FC<ProfileOverlayProps> = ({ visible, onClose, profile }) => {
+  if (!profile) return null;
+
+  const renderInfoTag = (icon: any, label: string, value: string | number | boolean) => {
+    let displayValue = value;
+    if (typeof value === 'boolean') {
+      displayValue = value ? 'Yes' : 'No';
+    }
+
+    return (
+      <View style={styles.tag}>
+        <Ionicons name={icon} size={16} color="#22c55e" />
+        <View style={styles.tagContent}>
+          <Text style={styles.tagLabel}>{label}</Text>
+          <Text style={styles.tagValue}>{displayValue}</Text>
+        </View>
+      </View>
+    );
+  };
+
+  return (
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={visible}
+      onRequestClose={onClose}
+    >
+      <View style={styles.overlay}>
+        <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+        
+        <View style={styles.content}>
+          <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
+            {/* PHOTO HEADER */}
+            <View style={styles.imageContainer}>
+              <Image
+                source={{
+                  uri: profile.photo || `https://ui-avatars.com/api/?name=${profile.userId?.name}&size=512&background=random`,
+                }}
+                style={styles.headerImage}
+                resizeMode="cover"
+              />
+              <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+                <BlurView intensity={80} tint="dark" style={styles.closeBlur}>
+                  <Ionicons name="close" size={24} color="#fff" />
+                </BlurView>
+              </TouchableOpacity>
+            </View>
+
+            {/* INFO BODY */}
+            <View style={styles.body}>
+              <View style={styles.headerInfo}>
+                <Text style={styles.name}>{profile.userId?.name}</Text>
+                <Text style={styles.location}>
+                  <Ionicons name="location" size={14} color="#9ca3af" /> {profile.city}
+                </Text>
+              </View>
+
+              <View style={styles.universityBox}>
+                <Ionicons name="school" size={16} color="#60a5fa" />
+                <Text style={styles.universityText}>{profile.university}</Text>
+              </View>
+
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>About Me</Text>
+                <Text style={styles.aboutText}>{profile.aboutMe || "No description provided."}</Text>
+              </View>
+
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Details</Text>
+                <View style={styles.tagsContainer}>
+                  {renderInfoTag('cash-outline', 'Budget', `$${profile.budget}`)}
+                  {renderInfoTag('no-smoking-outline', 'Smoking', profile.smoking)}
+                  {renderInfoTag('paw-outline', 'Pets', profile.pets)}
+                  {renderInfoTag('bed-outline', 'Furniture', profile.furniture)}
+                </View>
+              </View>
+
+              <View style={{ height: 40 }} />
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  content: {
+    backgroundColor: '#0f172a',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    height: SCREEN_HEIGHT * 0.75,
+    overflow: 'hidden',
+  },
+  imageContainer: {
+    width: '100%',
+    height: 300,
+    position: 'relative',
+    backgroundColor: '#1e293b',
+  },
+  headerImage: {
+    width: '100%',
+    height: '100%',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    zIndex: 10,
+  },
+  closeBlur: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  body: {
+    padding: 24,
+  },
+  headerInfo: {
+    marginBottom: 8,
+  },
+  name: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: -0.5,
+  },
+  location: {
+    fontSize: 15,
+    color: '#9ca3af',
+    marginTop: 4,
+  },
+  universityBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1e293b',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  universityText: {
+    color: '#60a5fa',
+    marginLeft: 6,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  section: {
+    marginTop: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#f8fafc',
+    marginBottom: 12,
+  },
+  aboutText: {
+    fontSize: 15,
+    color: '#cbd5e1',
+    lineHeight: 22,
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  tag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1e293b',
+    padding: 12,
+    borderRadius: 16,
+    width: '48%',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  tagContent: {
+    marginLeft: 10,
+  },
+  tagLabel: {
+    fontSize: 10,
+    color: '#94a3b8',
+    textTransform: 'uppercase',
+    fontWeight: '700',
+  },
+  tagValue: {
+    fontSize: 14,
+    color: '#f1f5f9',
+    fontWeight: '600',
+    marginTop: 2,
+  },
+});
+
+export default ProfileOverlay;

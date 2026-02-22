@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons'
 export default function LandingPage() {
   const router = useRouter()
 
+  
   return (
     <LinearGradient
       colors={['#020617', '#020617', '#0f172a']}

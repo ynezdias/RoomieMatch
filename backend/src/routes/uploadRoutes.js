@@ -47,7 +47,7 @@ router.post('/', authMiddleware, upload.single('file'), (req, res) => {
         return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    // req.file.path contains the Cloudinary URL
+   // req.file.path contains the Cloudinary URL
     res.json({
         url: req.file.path,
         filename: req.file.filename,

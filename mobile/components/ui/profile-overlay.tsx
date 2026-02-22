@@ -12,7 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface ProfileOverlayProps {
   visible: boolean;
@@ -54,13 +54,15 @@ const ProfileOverlay: React.FC<ProfileOverlayProps> = ({ visible, onClose, profi
           <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
             {/* PHOTO HEADER */}
             <View style={styles.imageContainer}>
-              <Image
-                source={{
-                  uri: profile.photo || `https://ui-avatars.com/api/?name=${profile.userId?.name}&size=512&background=random`,
-                }}
-                style={styles.headerImage}
-                resizeMode="cover"
-              />
+              <View style={styles.avatarWrapper}>
+                <Image
+                  source={{
+                    uri: profile.photo || `https://ui-avatars.com/api/?name=${profile.userId?.name}&size=512&background=random`,
+                  }}
+                  style={styles.headerImage}
+                  resizeMode="cover"
+                />
+              </View>
               <TouchableOpacity style={styles.closeButton} onPress={onClose}>
                 <BlurView intensity={80} tint="dark" style={styles.closeBlur}>
                   <Ionicons name="close" size={24} color="#fff" />
@@ -109,36 +111,58 @@ const ProfileOverlay: React.FC<ProfileOverlayProps> = ({ visible, onClose, profi
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.7)',
   },
   content: {
     backgroundColor: '#0f172a',
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    height: SCREEN_HEIGHT * 0.75,
+    borderRadius: 32,
+    width: SCREEN_WIDTH * 0.85,
+    maxHeight: SCREEN_HEIGHT * 0.7,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#334155',
+    elevation: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
   },
   imageContainer: {
     width: '100%',
-    height: 300,
+    height: 180,
     position: 'relative',
     backgroundColor: '#1e293b',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 20,
+  },
+  avatarWrapper: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 4,
+    borderColor: '#22c55e',
+    padding: 2,
+    backgroundColor: '#0f172a',
+    overflow: 'hidden',
   },
   headerImage: {
     width: '100%',
     height: '100%',
+    borderRadius: 60,
   },
   closeButton: {
     position: 'absolute',
-    top: 20,
-    right: 20,
+    top: 16,
+    right: 16,
     zIndex: 10,
   },
   closeBlur: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',

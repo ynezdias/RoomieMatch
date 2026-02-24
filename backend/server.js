@@ -65,25 +65,47 @@ io.on('connection', (socket) => {
 
   socket.join(socket.userId)
 
-  socket.on('joinMatch', (matchId) => {
-    socket.join(matchId)
+  socket.on('joinMatch', async (matchId) => {
+    try {
+      const Match = require('./src/models/Match');
+      const match = await Match.findOne({ _id: matchId, users: socket.userId });
+      if (match) {
+        socket.join(matchId);
+      } else {
+        console.warn(`⚠️ User ${socket.userId} tried to join unauthorized match ${matchId}`);
+      }
+    } catch (err) {
+      console.error('❌ joinMatch error:', err);
+    }
   })
 
   // Typing Indicators
-  socket.on('typing', ({ matchId }) => {
-    socket.to(matchId).emit('typing', { userId: socket.userId, matchId });
+  socket.on('typing', async ({ matchId }) => {
+    const Match = require('./src/models/Match');
+    const match = await Match.findOne({ _id: matchId, users: socket.userId });
+    if (match) {
+      socket.to(matchId).emit('typing', { userId: socket.userId, matchId });
+    }
   });
 
-  socket.on('stopTyping', ({ matchId }) => {
-    socket.to(matchId).emit('stopTyping', { userId: socket.userId, matchId });
+  socket.on('stopTyping', async ({ matchId }) => {
+    const Match = require('./src/models/Match');
+    const match = await Match.findOne({ _id: matchId, users: socket.userId });
+    if (match) {
+      socket.to(matchId).emit('stopTyping', { userId: socket.userId, matchId });
+    }
   });
 
   // Mark as Seen
   socket.on('markSeen', async ({ matchId, messageIds }) => {
     try {
+      const Match = require('./src/models/Match');
+      const match = await Match.findOne({ _id: matchId, users: socket.userId });
+      if (!match) return;
+
       const Message = require('./src/models/Message');
       await Message.updateMany(
-        { _id: { $in: messageIds } },
+        { _id: { $in: messageIds }, matchId },
         { $addToSet: { seenBy: socket.userId } }
       );
 
@@ -101,11 +123,15 @@ io.on('connection', (socket) => {
   // Delete Message
   socket.on('deleteMessage', async ({ matchId, messageId }) => {
     try {
+      const Match = require('./src/models/Match');
+      const match = await Match.findOne({ _id: matchId, users: socket.userId });
+      if (!match) return;
+
       const Message = require('./src/models/Message');
 
       // Soft delete
       const msg = await Message.findOneAndUpdate(
-        { _id: messageId, sender: socket.userId }, // Ensure ownership
+        { _id: messageId, sender: socket.userId, matchId }, // Ensure ownership and match context
         { isDeleted: true },
         { new: true }
       );
@@ -120,9 +146,16 @@ io.on('connection', (socket) => {
 
   socket.on('sendMessage', async ({ matchId, text, type = 'text', mediaUrl = null }) => {
     const Message = require('./src/models/Message')
-    const Match = require('./src/models/Match') // Ensure Match exists if needed
+    const Match = require('./src/models/Match')
 
     try {
+      // SECURITY: Verify user is part of this match before allowing them to send a message
+      const match = await Match.findOne({ _id: matchId, users: socket.userId });
+      if (!match) {
+        console.error(`🚫 Unauthorized sendMessage attempt by ${socket.userId} for match ${matchId}`);
+        return;
+      }
+
       const message = await Message.create({
         matchId,
         sender: socket.userId,
@@ -131,14 +164,7 @@ io.on('connection', (socket) => {
         mediaUrl
       });
 
-      // Populate sender details if needed by frontend immediately, 
-      // or let frontend handle it. Usually sending raw ID is faster 
-      // but if you show profile pic in chat, might need populate.
-      // For now preventing N+1 queries by just sending the doc.
-
       io.to(matchId).emit('newMessage', message)
-
-      // Push notification logic could go here
     } catch (err) {
       console.error('Send Message Error:', err);
     }

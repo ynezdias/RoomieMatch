@@ -26,6 +26,7 @@ export default function SwipeScreen() {
   const [profiles, setProfiles] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [matchVisible, setMatchVisible] = useState(false)
+  const [activeMatchId, setActiveMatchId] = useState<string | null>(null)
 
   const translateX = useSharedValue(0)
   const matchScale = useSharedValue(0.5)
@@ -50,7 +51,8 @@ export default function SwipeScreen() {
 
   /* ===================== MATCH ANIMATION ===================== */
 
-  const triggerMatch = () => {
+  const triggerMatch = (matchId: string) => {
+    setActiveMatchId(matchId)
     setMatchVisible(true)
     matchScale.value = withSpring(1)
     matchOpacity.value = withSpring(1)
@@ -69,7 +71,7 @@ export default function SwipeScreen() {
       })
 
       if (res.data?.match) {
-        triggerMatch()
+        triggerMatch(res.data.matchId)
       }
     } catch (err) {
       console.log('❌ SWIPE ERROR', err)
@@ -162,11 +164,14 @@ export default function SwipeScreen() {
               style={styles.messageBtn} 
               onPress={() => {
                 setMatchVisible(false)
-                // matchId should be stored in state when match happens, but for now we might need to just go to matches list
-                // OR we can't easily jump to chat without the ID.
-                // The backend returns { match: true, matchId: ... }
-                // I need to update handleSwipe to save that ID.
-                router.push('/(protected)/(tabs)/matches' as any) 
+                if (activeMatchId) {
+                  router.push({
+                    pathname: '/(protected)/chat',
+                    params: { matchId: activeMatchId }
+                  } as any)
+                } else {
+                  router.push('/(protected)/(tabs)/matches' as any) 
+                }
               }}
             >
               <Text style={styles.messageText}>Send a Message</Text>

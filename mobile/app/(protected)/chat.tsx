@@ -29,8 +29,10 @@ export default function ChatScreen() {
   const { user } = useAuth()
   const { matchId, initialMessage } = useLocalSearchParams()
   const { colors } = useTheme()
+  const router = useRouter()
 
   const [messages, setMessages] = useState<any[]>([])
+  const [partner, setPartner] = useState<any>(null)
   const [text, setText] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const [partnerTyping, setPartnerTyping] = useState(false)
@@ -47,6 +49,16 @@ export default function ChatScreen() {
 
     let mounted = true
     
+    // Load partner details for header
+    const loadPartner = async () => {
+        try {
+            const res = await api.get(`/chat/match/${matchId}`)
+            if (mounted) setPartner(res.data.partner)
+        } catch (err) {
+            console.log('Error loading partner:', err)
+        }
+    }
+
     // Load initial messages
     const loadMessages = async () => {
         try {
@@ -56,6 +68,8 @@ export default function ChatScreen() {
             console.log('Error loading chat:', err)
         }
     }
+
+    loadPartner()
     loadMessages()
 
     // Connect Socket
@@ -66,14 +80,9 @@ export default function ChatScreen() {
 
         // 🔥 AUTO-SEND INITIAL MESSAGE IF PROVIDED
         if (initialMessage && typeof initialMessage === 'string') {
-            // Wait a bit for messages to load to check if any exist
             setTimeout(() => {
                 setMessages(prev => {
-                    // Only send if it's the first message or if we want to force it
-                    // Actually the request says "directly take you to chat with them and send a message"
-                    // So we should probably check if we already sent this hi message
                     const alreadySent = prev.some(m => m.text === initialMessage && (m.sender === user._id || m.sender?._id === user._id))
-                    
                     if (!alreadySent) {
                         sendMessage(initialMessage)
                     }
@@ -83,7 +92,7 @@ export default function ChatScreen() {
         }
 
         socket.on('newMessage', (msg) => {
-            setMessages((prev) => [...prev, msg])
+            setMessages((prev) => [msg, ...prev]) // Push to front for inverted list
             markSeen([msg._id])
         })
 
@@ -151,7 +160,6 @@ export default function ChatScreen() {
       if (!socketRef.current) return
       if (type === 'text' && !content.trim()) return
 
-      // Haptic feedback
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
 
       socketRef.current.emit('sendMessage', {
@@ -192,7 +200,6 @@ export default function ChatScreen() {
              else if (type === 'image') mimeType = 'image/jpeg'
           }
           
-          // Ensure extension
           if (!name.includes('.')) {
               const ext = mimeType?.split('/')[1] || (type === 'video' ? 'mp4' : 'jpg')
               name = `${name}.${ext}`
@@ -221,7 +228,8 @@ export default function ChatScreen() {
   /* ===================== RENDER ===================== */
 
   const renderItem = ({ item }) => {
-      const isMe = item.sender === user._id || item.sender?._id === user._id
+      const senderId = item.sender?._id || item.sender
+      const isMe = senderId === user?._id
       const isDeleted = item.isDeleted
       const isSystem = item.type === 'system'
 
@@ -238,12 +246,12 @@ export default function ChatScreen() {
             onLongPress={() => isMe && !isDeleted && deleteMessage(item._id)}
             style={[
               styles.bubble, 
-              isMe ? { alignSelf: 'flex-end', backgroundColor: colors.bubbleSelf, borderBottomRightRadius: 4 } 
-                   : { alignSelf: 'flex-start', backgroundColor: colors.bubbleOther, borderBottomLeftRadius: 4 }
+              isMe ? { alignSelf: 'flex-end', backgroundColor: '#3b82f6', borderBottomRightRadius: 4 } 
+                   : { alignSelf: 'flex-start', backgroundColor: '#1e293b', borderBottomLeftRadius: 4 }
             ]}
           >
               {isDeleted ? (
-                  <Text style={{ fontStyle: 'italic', color: '#888' }}>Message deleted</Text>
+                  <Text style={{ fontStyle: 'italic', color: '#94a3b8' }}>Message deleted</Text>
               ) : (
                   <>
                     {item.type === 'image' && (
@@ -258,7 +266,7 @@ export default function ChatScreen() {
                         />
                     )}
                     {!!item.text && (
-                        <Text style={{ color: isMe ? '#fff' : colors.text, fontSize: 16 }}>{item.text}</Text>
+                        <Text style={{ color: '#fff', fontSize: 16 }}>{item.text}</Text>
                     )}
                     
                     <View style={styles.metaRow}>
@@ -282,48 +290,89 @@ export default function ChatScreen() {
 
   return (
     <KeyboardAvoidingView 
-        style={[styles.container, { backgroundColor: colors.background }]} 
+        style={[styles.container, { backgroundColor: '#020617' }]} 
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={90}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
       <Stack.Screen options={{ 
-          headerTitle: partnerTyping ? 'Typing...' : 'Chat',
-          headerStyle: { backgroundColor: colors.background },
-          headerTintColor: colors.text
+          headerLeft: () => (
+            <View style={styles.headerPartner}>
+                <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 12 }}>
+                    <Ionicons name="chevron-back" size={28} color="#fff" />
+                </TouchableOpacity>
+                <Image 
+                    source={{ uri: partner?.photo || `https://ui-avatars.com/api/?name=${partner?.name}` }} 
+                    style={styles.headerAvatar}
+                />
+                <View style={{ marginLeft: 10 }}>
+                    <Text style={styles.headerName} numberOfLines={1}>{partner?.name || 'Loading...'}</Text>
+                    <Text style={styles.headerSub} numberOfLines={1}>{partnerTyping ? 'Typing...' : partner?.email?.split('@')[0] || partner?.name?.toLowerCase().replace(' ', '.')}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={12} color="#94a3b8" style={{ marginLeft: 4 }} />
+            </View>
+          ),
+          headerTitle: '',
+          headerStyle: { backgroundColor: '#020617' },
+          headerShadowVisible: false,
+          headerRight: () => (
+            <View style={styles.headerActions}>
+                <TouchableOpacity style={styles.headerActionBtn}>
+                    <Ionicons name="call-outline" size={24} color="#fff" />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.headerActionBtn}>
+                    <Ionicons name="videocam-outline" size={26} color="#fff" />
+                </TouchableOpacity>
+            </View>
+          )
       }} />
 
       <FlatList
         data={messages}
         keyExtractor={(item) => item._id}
         renderItem={renderItem}
-        contentContainerStyle={{ padding: 10 }}
-        inverted={false} // Depending  xyz on your API sort order. Usually DB is oldest first.
-        // onEndReached={() => markSeen(messages.map(m => m._id))}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 10 }}
+        inverted={true}
+        showsVerticalScrollIndicator={false}
       />
 
-      {uploading && (
-          <View style={styles.loadingOverlay}>
-              <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={{color: colors.text, marginTop: 10}}>Uploading...</Text>
+      <View style={styles.bottomBar}>
+          <View style={[styles.inputContainer, { backgroundColor: '#1e293b' }]}>
+              <TouchableOpacity style={styles.cameraBtn} onPress={() => setPickerVisible(true)}>
+                  <View style={styles.cameraIconBg}>
+                      <Ionicons name="camera" size={20} color="#fff" />
+                  </View>
+              </TouchableOpacity>
+              
+              <TextInput
+                  style={styles.input}
+                  value={text}
+                  onChangeText={handleTyping}
+                  placeholder="Message..."
+                  placeholderTextColor="#94a3b8"
+                  multiline
+              />
+
+              {text.trim() ? (
+                <TouchableOpacity onPress={() => sendMessage()} style={styles.sendTextBtn}>
+                    <Text style={styles.sendTextLabel}>Send</Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.inputIconsRight}>
+                    <TouchableOpacity style={styles.inputActionIcon}>
+                        <Ionicons name="mic-outline" size={24} color="#fff" />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.inputActionIcon} onPress={() => setPickerVisible(true)}>
+                        <Ionicons name="image-outline" size={24} color="#fff" />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.inputActionIcon}>
+                        <Ionicons name="happy-outline" size={24} color="#fff" />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.inputActionIcon}>
+                        <Ionicons name="add-circle-outline" size={24} color="#fff" />
+                    </TouchableOpacity>
+                </View>
+              )}
           </View>
-      )}
-
-      <View style={[styles.inputContainer, { backgroundColor: colors.inputBackground, borderTopColor: colors.border }]}>
-          <Pressable onPress={() => setPickerVisible(true)} style={styles.iconButton}>
-              <Ionicons name="add" size={28} color={colors.primary} />
-          </Pressable>
-
-          <TextInput
-              style={[styles.input, { color: colors.text, backgroundColor: colors.background }]}
-              value={text}
-              onChangeText={handleTyping}
-              placeholder="Type a message..."
-              placeholderTextColor="#888"
-          />
-
-          <Pressable onPress={() => sendMessage()} style={styles.sendButton}>
-              <Ionicons name="send" size={24} color={colors.primary} />
-          </Pressable>
       </View>
 
       <MediaPicker 
@@ -333,28 +382,62 @@ export default function ChatScreen() {
           onPickVideo={(asset) => uploadMedia(asset, 'video')}
           onPickDocument={(doc) => uploadMedia(doc, 'file')}
       />
+
+      {uploading && (
+          <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color="#3b82f6" />
+          </View>
+      )}
     </KeyboardAvoidingView>
   )
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  headerPartner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingLeft: 4,
+  },
+  headerAvatar: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: '#1e293b',
+  },
+  headerName: {
+      color: '#fff',
+      fontSize: 15,
+      fontWeight: '700',
+  },
+  headerSub: {
+      color: '#94a3b8',
+      fontSize: 12,
+  },
+  headerActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+  },
+  headerActionBtn: {
+      marginLeft: 20,
+  },
   bubble: {
-      maxWidth: '80%',
-      padding: 10,
-      borderRadius: 16,
-      marginVertical: 4,
+      maxWidth: '75%',
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      borderRadius: 18,
+      marginVertical: 2,
   },
   mediaImage: {
       width: 200,
       height: 200,
-      borderRadius: 10,
+      borderRadius: 18,
       marginBottom: 5
   },
   mediaVideo: {
       width: 200,
       height: 200,
-      borderRadius: 10,
+      borderRadius: 18,
       marginBottom: 5,
       backgroundColor: '#000'
   },
@@ -362,57 +445,78 @@ const styles = StyleSheet.create({
       flexDirection: 'row',
       justifyContent: 'flex-end',
       alignItems: 'center',
-      marginTop: 4
+      marginTop: 2
   },
   time: {
       fontSize: 10,
-      color: 'rgba(128,128,128, 0.8)'
+      color: 'rgba(255,255,255, 0.4)'
+  },
+  bottomBar: {
+      paddingHorizontal: 12,
+      paddingBottom: Platform.OS === 'ios' ? 24 : 12,
+      paddingTop: 8,
   },
   inputContainer: {
       flexDirection: 'row',
       alignItems: 'center',
-      padding: 10,
-      borderTopWidth: 1,
+      borderRadius: 24,
+      paddingHorizontal: 4,
+  },
+  cameraBtn: {
+    padding: 4,
+  },
+  cameraIconBg: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#3b82f6',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   input: {
       flex: 1,
-      borderRadius: 20,
-      paddingHorizontal: 15,
+      color: '#fff',
+      fontSize: 16,
+      paddingHorizontal: 12,
       paddingVertical: 10,
-      marginHorizontal: 10,
-      maxHeight: 100,
+      maxHeight: 120,
   },
-  iconButton: {
-      padding: 5
+  inputIconsRight: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingRight: 8,
   },
-  sendButton: {
-      padding: 5
+  inputActionIcon: {
+      marginLeft: 12,
+  },
+  sendTextBtn: {
+    paddingHorizontal: 16,
+  },
+  sendTextLabel: {
+    color: '#3b82f6',
+    fontWeight: '700',
+    fontSize: 16,
   },
   loadingOverlay: {
-      position: 'absolute',
-      bottom: 70,
-      left: 0, 
-      right: 0, 
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(0,0,0,0.5)',
       alignItems: 'center', 
       justifyContent: 'center',
-      backgroundColor: 'rgba(0,0,0,0.3)',
-      padding: 10
+      zIndex: 100,
   },
   systemContainer: {
       alignSelf: 'center',
-      backgroundColor: 'rgba(0,0,0,0.05)',
       paddingHorizontal: 16,
       paddingVertical: 8,
       borderRadius: 20,
       marginVertical: 12,
-      borderWidth: 1,
-      borderColor: 'rgba(0,0,0,0.1)',
   },
   systemText: {
-      fontSize: 13,
+      fontSize: 12,
       color: '#64748b',
       fontWeight: '600',
-      fontStyle: 'italic',
       textAlign: 'center',
+      textTransform: 'uppercase',
+      letterSpacing: 1,
   }
 })

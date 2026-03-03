@@ -80,7 +80,7 @@ router.get('/:matchId', auth, async (req, res) => {
   try {
     const messages = await Message.find({
       matchId: req.params.matchId,
-    }).sort({ createdAt: 1 })
+    }).sort({ createdAt: -1 })
 
     res.json(messages)
   } catch (err) {
@@ -127,6 +127,34 @@ router.post('/get-or-create/:targetUserId', auth, async (req, res) => {
     res.json({ matchId: match._id })
   } catch (err) {
     console.error('Get-or-create match error:', err)
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
+router.get('/match/:matchId', auth, async (req, res) => {
+  try {
+    const match = await Match.findById(req.params.matchId).populate({
+      path: 'users',
+      select: 'name email',
+    })
+
+    if (!match) return res.status(404).json({ error: 'Match not found' })
+
+    const otherUser = match.users.find((u) => u._id.toString() !== req.user.id)
+    if (!otherUser) return res.status(404).json({ error: 'Partner not found' })
+
+    const profile = await Profile.findOne({ userId: otherUser._id })
+
+    res.json({
+      _id: match._id,
+      partner: {
+        _id: otherUser._id,
+        name: otherUser.name,
+        photo: profile?.photo || `https://ui-avatars.com/api/?name=${otherUser.name}`,
+      }
+    })
+  } catch (err) {
+    console.error('Fetch match details error:', err)
     res.status(500).json({ error: 'Server error' })
   }
 })

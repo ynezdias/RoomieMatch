@@ -7,10 +7,12 @@ import {
   ActivityIndicator,
   TextInput,
   TouchableOpacity,
+  SafeAreaView,
 } from 'react-native'
 import { useEffect, useState } from 'react'
 import api from '../../../services/api'
 import { Ionicons } from '@expo/vector-icons'
+import { LinearGradient } from 'expo-linear-gradient'
 import ProfileOverlay from '../../../components/ui/profile-overlay'
 
 export default function ExploreScreen() {
@@ -58,73 +60,90 @@ export default function ExploreScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#22c55e" />
+        <LinearGradient
+          colors={['#020617', '#0f172a']}
+          style={StyleSheet.absoluteFill}
+        />
+        <ActivityIndicator size="large" color="#ce0000" />
       </View>
     )
   }
 
   return (
     <View style={styles.container}>
-      {/* HEADER */}
-      <Text style={styles.title}>Explore</Text>
-
-      {/* SEARCH BAR */}
-      <View style={styles.searchBox}>
-        <Ionicons name="search" size={18} color="#9ca3af" />
-        <TextInput
-          placeholder="Search by name, city, university"
-          placeholderTextColor="#6b7280"
-          style={styles.searchInput}
-          value={search}
-          onChangeText={setSearch}
-        />
-      </View>
-
-      {/* LIST */}
-      <FlatList
-        data={filtered}
-        keyExtractor={(item) => item._id}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 40 }}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.card}
-            onPress={() => {
-              setSelectedProfile(item)
-              setIsModalVisible(true)
-            }}
-          >
-            <Image
-              source={{
-                uri:
-                  item.photo ||
-                  `https://ui-avatars.com/api/?name=${item.userId?.name}`,
-              }}
-              style={styles.avatar}
-            />
-
-            <View style={styles.info}>
-              <Text style={styles.name}>{item.userId?.name}</Text>
-              <Text style={styles.meta}>
-                {item.university} • {item.city}
-              </Text>
-
-              <Text style={styles.about} numberOfLines={3}>
-                {item.aboutMe}
-              </Text>
-            </View>
-
-            <Ionicons
-              name="chevron-forward"
-              size={20}
-              color="#374151"
-            />
-          </TouchableOpacity>
-        )}
-        ListEmptyComponent={
-          <Text style={styles.empty}>No profiles found</Text>
-        }
+      <LinearGradient
+        colors={['#020617', '#0f172a', '#1e293b']}
+        style={StyleSheet.absoluteFill}
       />
+      
+      <SafeAreaView style={{ flex: 1 }}>
+        <View style={{ paddingHorizontal: 16, flex: 1 }}>
+          {/* HEADER */}
+          <Text style={styles.title}>Explore</Text>
+
+          {/* SEARCH BAR */}
+          <View style={styles.searchBox}>
+            <Ionicons name="search" size={18} color="#94a3b8" />
+            <TextInput
+              placeholder="Search by name, city, university"
+              placeholderTextColor="#64748b"
+              style={styles.searchInput}
+              value={search}
+              onChangeText={setSearch}
+            />
+          </View>
+
+          {/* LIST */}
+          <FlatList
+            data={filtered}
+            keyExtractor={(item) => item._id}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 40 }}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                style={styles.card}
+                onPress={() => {
+                  setSelectedProfile(item)
+                  setIsModalVisible(true)
+                }}
+              >
+                <View style={styles.avatarContainer}>
+                    <Image
+                    source={{
+                        uri:
+                        item.photo ||
+                        `https://ui-avatars.com/api/?name=${item.userId?.name}`,
+                    }}
+                    style={styles.avatar}
+                    />
+                </View>
+
+                <View style={styles.info}>
+                  <Text style={styles.name}>{item.userId?.name}</Text>
+                  <Text style={styles.meta}>
+                    {item.university} • {item.city}
+                  </Text>
+
+                  <Text style={styles.about} numberOfLines={2}>
+                    {item.aboutMe}
+                  </Text>
+                </View>
+
+                <Ionicons
+                  name="chevron-forward"
+                  size={20}
+                  color="#475569"
+                />
+              </TouchableOpacity>
+            )}
+            ListEmptyComponent={
+              <Text style={styles.empty}>No profiles found</Text>
+            }
+          />
+        </View>
+      </SafeAreaView>
+
       <ProfileOverlay
         visible={isModalVisible}
         profile={selectedProfile}
@@ -138,74 +157,86 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#020617',
-    paddingHorizontal: 16,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#fff',
-    marginTop: 16,
-    marginBottom: 12,
-  },
-  searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#111827',
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    height: 46,
-    borderWidth: 1,
-    borderColor: '#1f2937',
-    marginBottom: 14,
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: 8,
-    color: '#fff',
-    fontSize: 14,
-  },
-  card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#111827',
-    borderRadius: 18,
-    padding: 14,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#1f2937',
-  },
-  avatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#1f2937',
-  },
-  info: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  name: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  meta: {
-    fontSize: 13,
-    color: '#9ca3af',
-    marginBottom: 4,
-  },
-  about: {
-    fontSize: 13,
-    color: '#d1d5db',
-  },
-  empty: {
-    textAlign: 'center',
-    marginTop: 60,
-    color: '#6b7280',
   },
   center: {
     flex: 1,
     justifyContent: 'center',
-    backgroundColor: '#020617',
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#fff',
+    marginTop: 20,
+    marginBottom: 20,
+    letterSpacing: -0.5,
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(30, 41, 59, 0.5)',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    height: 52,
+    borderWidth: 1,
+    borderColor: '#334155',
+    marginBottom: 20,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 12,
+    color: '#f8fafc',
+    fontSize: 16,
+  },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(30, 41, 59, 0.4)',
+    borderRadius: 24,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#1e293b',
+  },
+  avatarContainer: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  avatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 20,
+    backgroundColor: '#1e293b',
+  },
+  info: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  name: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#f8fafc',
+    marginBottom: 2,
+  },
+  meta: {
+    fontSize: 14,
+    color: '#ce0000',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  about: {
+    fontSize: 14,
+    color: '#94a3b8',
+    lineHeight: 20,
+  },
+  empty: {
+    textAlign: 'center',
+    marginTop: 100,
+    color: '#64748b',
+    fontSize: 16,
+    fontWeight: '500',
   },
 })

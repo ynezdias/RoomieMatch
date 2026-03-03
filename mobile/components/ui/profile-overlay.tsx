@@ -37,10 +37,11 @@ const ProfileOverlay: React.FC<ProfileOverlayProps> = ({ visible, onClose, profi
       const { matchId } = res.data;
 
       onClose();
+      // @ts-ignore
       router.push({
-        pathname: '/(protected)/chat',
+        pathname: '/chat',
         params: { 
-          matchId,
+          matchId: matchId.toString(),
           initialMessage: `Hi - ${profile.userId?.name}`
         }
       });
@@ -60,7 +61,7 @@ const ProfileOverlay: React.FC<ProfileOverlayProps> = ({ visible, onClose, profi
 
     return (
       <View style={styles.tag}>
-        <Ionicons name={icon} size={16} color="#22c55e" />
+        <Ionicons name={icon} size={16} color="#ce0000" />
         <View style={styles.tagContent}>
           <Text style={styles.tagLabel}>{label}</Text>
           <Text style={styles.tagValue}>{displayValue}</Text>
@@ -122,13 +123,12 @@ const ProfileOverlay: React.FC<ProfileOverlayProps> = ({ visible, onClose, profi
                 <Text style={styles.sectionTitle}>Details</Text>
                 <View style={styles.tagsContainer}>
                   {renderInfoTag('cash-outline', 'Budget', `$${profile.budget}`)}
-                  {renderInfoTag('no-smoking-outline', 'Smoking', profile.smoking)}
+                  {renderInfoTag('ban', 'Smoking', profile.smoking)}
                   {renderInfoTag('paw-outline', 'Pets', profile.pets)}
                   {renderInfoTag('bed-outline', 'Furniture', profile.furniture)}
                 </View>
               </View>
 
-              </View>
 
               <TouchableOpacity 
                 style={[styles.chatButton, loading && styles.disabledButton]} 
@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 60,
     borderWidth: 4,
-    borderColor: '#22c55e',
+    borderColor: '#ce0000',
     padding: 2,
     backgroundColor: '#0f172a',
     overflow: 'hidden',
@@ -294,12 +294,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#22c55e',
+    backgroundColor: '#ce0000',
     paddingVertical: 14,
     borderRadius: 16,
     marginTop: 28,
     gap: 8,
-    shadowColor: '#22c55e',
+    shadowColor: '#ce0000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

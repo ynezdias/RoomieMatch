@@ -5,9 +5,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const LightColors = {
     background: '#FFFFFF',
     text: '#000000',
-    primary: '#4CAF50',
+    primary: '#ce0000',
     secondary: '#E0E0E0',
-    bubbleSelf: '#4CAF50',
+    bubbleSelf: '#ce0000',
     bubbleOther: '#F0F0F0',
     inputBackground: '#F9F9F9',
     border: '#E0E0E0',
@@ -17,9 +17,9 @@ const LightColors = {
 const DarkColors = {
     background: '#121212',
     text: '#FFFFFF',
-    primary: '#4CAF50',
+    primary: '#ce0000',
     secondary: '#333333',
-    bubbleSelf: '#388E3C', // Slightly darker green
+    bubbleSelf: '#990000', // Slightly darker red
     bubbleOther: '#333333',
     inputBackground: '#1E1E1E',
     border: '#333333',

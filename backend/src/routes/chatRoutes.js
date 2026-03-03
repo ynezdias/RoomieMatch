@@ -1,60 +1,65 @@
 const router = require('express').Router()
 const Message = require('../models/Message')
 const Match = require('../models/Match')
+const Profile = require('../models/Profile')
+const auth = require('../middleware/authMiddleware')
 
-router.get('/matches', async (req, res) => {
-  const userId = req.user.id
-  const Match = require('../models/Match')
-  const Message = require('../models/Message')
-  const Profile = require('../models/Profile')
+router.get('/matches', auth, async (req, res) => {
+  try {
+    const userId = req.user.id
 
-  // Populate users
-  const matches = await Match.find({ users: userId }).populate({
-    path: 'users',
-    select: 'name email',
-  })
-
-  const formatted = await Promise.all(
-    matches.map(async (m) => {
-      const otherUser = m.users.find((u) => u._id.toString() !== userId)
-      if (!otherUser) return null
-
-      const profile = await Profile.findOne({ userId: otherUser._id })
-      const lastMessage = await Message.findOne({ matchId: m._id }).sort({ createdAt: -1 })
-
-      const isPinned = m.pinnedBy?.includes(userId) || false;
-
-      return {
-        _id: m._id,
-        otherUser: {
-          _id: otherUser._id,
-          name: otherUser.name,
-          email: otherUser.email,
-          photo: profile?.photo || `https://ui-avatars.com/api/?name=${otherUser.name}`,
-        },
-        lastMessage: lastMessage ? (lastMessage.type === 'text' ? lastMessage.text : `Sent a ${lastMessage.type}`) : 'Say hi!',
-        lastMessageTime: lastMessage?.createdAt || m.createdAt,
-        isPinned
-      }
+    // Populate users
+    const matches = await Match.find({ users: userId }).populate({
+      path: 'users',
+      select: 'name email',
     })
-  )
 
-  const finalMatches = formatted.filter(Boolean).sort((a, b) => {
-    if (a.isPinned && !b.isPinned) return -1;
-    if (!a.isPinned && b.isPinned) return 1;
-    return new Date(b.lastMessageTime) - new Date(a.lastMessageTime);
-  });
+    const formatted = await Promise.all(
+      matches.map(async (m) => {
+        const otherUser = m.users.find((u) => u._id.toString() !== userId)
+        if (!otherUser) return null
 
-  res.json(finalMatches)
+        const profile = await Profile.findOne({ userId: otherUser._id })
+        const lastMessage = await Message.findOne({ matchId: m._id }).sort({ createdAt: -1 })
+
+        const isPinned = m.pinnedBy?.includes(userId) || false;
+
+        return {
+          _id: m._id,
+          otherUser: {
+            _id: otherUser._id,
+            name: otherUser.name,
+            email: otherUser.email,
+            photo: profile?.photo || `https://ui-avatars.com/api/?name=${otherUser.name}`,
+          },
+          lastMessage: lastMessage ? (lastMessage.type === 'text' ? lastMessage.text : `Sent a ${lastMessage.type}`) : 'Say hi!',
+          lastMessageTime: lastMessage?.createdAt || m.createdAt,
+          isPinned
+        }
+      })
+    )
+
+    const finalMatches = formatted.filter(Boolean).sort((a, b) => {
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      return new Date(b.lastMessageTime) - new Date(a.lastMessageTime);
+    });
+
+    res.json(finalMatches)
+  } catch (err) {
+    console.error('Fetch matches error:', err)
+    res.status(500).json({ error: 'Server error' })
+  }
 })
 
-router.put('/pin/:matchId', async (req, res) => {
+router.put('/pin/:matchId', auth, async (req, res) => {
   try {
-    const Match = require('../models/Match');
     const match = await Match.findById(req.params.matchId);
     if (!match) return res.status(404).json({ error: 'Match not found' });
 
     const userId = req.user.id;
+    if (!match.pinnedBy) match.pinnedBy = [];
+
     const isPinned = match.pinnedBy.includes(userId);
 
     if (isPinned) {
@@ -71,18 +76,27 @@ router.put('/pin/:matchId', async (req, res) => {
   }
 });
 
-router.get('/:matchId', async (req, res) => {
-  const messages = await Message.find({
-    matchId: req.params.matchId,
-  }).sort({ createdAt: 1 })
+router.get('/:matchId', auth, async (req, res) => {
+  try {
+    const messages = await Message.find({
+      matchId: req.params.matchId,
+    }).sort({ createdAt: 1 })
 
-  res.json(messages)
+    res.json(messages)
+  } catch (err) {
+    console.error('Fetch messages error:', err)
+    res.status(500).json({ error: 'Server error' })
+  }
 })
 
-router.post('/get-or-create/:targetUserId', async (req, res) => {
+router.post('/get-or-create/:targetUserId', auth, async (req, res) => {
   try {
     const currentUserId = req.user.id
     const { targetUserId } = req.params
+
+    if (!targetUserId || targetUserId === 'undefined') {
+      return res.status(400).json({ error: "Invalid target user ID" })
+    }
 
     if (currentUserId === targetUserId) {
       return res.status(400).json({ error: "You cannot chat with yourself" })
@@ -97,6 +111,7 @@ router.post('/get-or-create/:targetUserId', async (req, res) => {
     if (!match) {
       match = new Match({
         users: [currentUserId, targetUserId],
+        pinnedBy: []
       })
       await match.save()
 

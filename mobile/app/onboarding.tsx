@@ -49,7 +49,7 @@ export default function OnboardingScreen() {
     const renderItem = ({ item }) => (
         <View style={styles.slide}>
             <View style={styles.iconContainer}>
-                <Ionicons name={item.icon} size={100} color="#4CAF50" />
+                <Ionicons name={item.icon} size={100} color="#ce0000" />
             </View>
             <Text style={styles.title}>{item.title}</Text>
             <Text style={styles.description}>{item.description}</Text>
@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
     iconContainer: {
         width: 200,
         height: 200,
-        backgroundColor: 'rgba(76, 175, 80, 0.1)',
+        backgroundColor: 'rgba(206, 0, 0, 0.1)',
         borderRadius: 100,
         justifyContent: 'center',
         alignItems: 'center',
@@ -153,11 +153,11 @@ const styles = StyleSheet.create({
         marginRight: 10,
     },
     activeDot: {
-        backgroundColor: '#4CAF50',
+        backgroundColor: '#ce0000',
         width: 20,
     },
     button: {
-        backgroundColor: '#4CAF50',
+        backgroundColor: '#ce0000',
         paddingVertical: 12,
         paddingHorizontal: 24,
         borderRadius: 30,

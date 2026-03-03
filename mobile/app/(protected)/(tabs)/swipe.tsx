@@ -119,7 +119,7 @@ export default function SwipeScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#22c55e" />
+        <ActivityIndicator size="large" color="#ce0000" />
         <Text style={styles.loadingText}>Finding matches...</Text>
       </View>
     )
@@ -280,15 +280,15 @@ const styles = StyleSheet.create({
   },
   budgetBadge: {
     marginTop: 20,
-    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+    backgroundColor: 'rgba(206, 0, 0, 0.15)',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(34, 197, 94, 0.3)',
+    borderColor: 'rgba(206, 0, 0, 0.3)',
   },
   budgetText: {
-    color: '#22c55e',
+    color: '#ce0000',
     fontSize: 16,
     fontWeight: '700',
   },
@@ -318,12 +318,12 @@ const styles = StyleSheet.create({
     marginTop: 15,
   },
   messageBtn: {
-    backgroundColor: '#22c55e',
+    backgroundColor: '#ce0000',
     paddingHorizontal: 32,
     paddingVertical: 16,
     borderRadius: 32,
     elevation: 4,
-    shadowColor: '#22c55e',
+    shadowColor: '#ce0000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 8,

@@ -8,9 +8,13 @@ import {
   TouchableOpacity,
   ScrollView,
   Dimensions,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
+import { useRouter } from 'expo-router';
+import api from '../../services/api';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -21,7 +25,32 @@ interface ProfileOverlayProps {
 }
 
 const ProfileOverlay: React.FC<ProfileOverlayProps> = ({ visible, onClose, profile }) => {
+  const router = useRouter();
+  const [loading, setLoading] = React.useState(false);
+
   if (!profile) return null;
+
+  const handleChat = async () => {
+    try {
+      setLoading(true);
+      const res = await api.post(`/chat/get-or-create/${profile.userId?._id}`);
+      const { matchId } = res.data;
+
+      onClose();
+      router.push({
+        pathname: '/(protected)/chat',
+        params: { 
+          matchId,
+          initialMessage: `Hi - ${profile.userId?.name}`
+        }
+      });
+    } catch (err) {
+      console.error('Chat error:', err);
+      Alert.alert('Error', 'Could not open chat. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const renderInfoTag = (icon: any, label: string, value: string | number | boolean) => {
     let displayValue = value;
@@ -98,6 +127,23 @@ const ProfileOverlay: React.FC<ProfileOverlayProps> = ({ visible, onClose, profi
                   {renderInfoTag('bed-outline', 'Furniture', profile.furniture)}
                 </View>
               </View>
+
+              </View>
+
+              <TouchableOpacity 
+                style={[styles.chatButton, loading && styles.disabledButton]} 
+                onPress={handleChat}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <>
+                    <Ionicons name="chatbubble-ellipses" size={20} color="#fff" />
+                    <Text style={styles.chatButtonText}>Chat Now</Text>
+                  </>
+                )}
+              </TouchableOpacity>
 
               <View style={{ height: 40 }} />
             </View>
@@ -243,6 +289,30 @@ const styles = StyleSheet.create({
     color: '#f1f5f9',
     fontWeight: '600',
     marginTop: 2,
+  },
+  chatButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#22c55e',
+    paddingVertical: 14,
+    borderRadius: 16,
+    marginTop: 28,
+    gap: 8,
+    shadowColor: '#22c55e',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  chatButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  disabledButton: {
+    opacity: 0.6,
+    backgroundColor: '#1e293b',
   },
 });
 

@@ -1,6 +1,7 @@
 const Swipe = require('../models/Swipe');
 const Match = require('../models/Match');
 const Profile = require('../models/Profile');
+const Message = require('../models/Message');
 
 /**
  * GET SWIPE SUGGESTIONS
@@ -85,6 +86,19 @@ exports.handleSwipe = async (req, res) => {
             users: [currentUserId, targetUserId],
           });
           await matchDoc.save();
+
+          // 🔥 CREATE SYSTEM MESSAGE FOR MATCH
+          const systemMsg = await Message.create({
+            matchId: matchDoc._id,
+            sender: currentUserId, // Use one of the users as sender, but type is 'system'
+            text: "You matched! Start chatting now.",
+            type: 'system',
+          });
+
+          // 🔥 REAL-TIME SOCKET EMIT for system message
+          if (global.io) {
+            global.io.to(matchDoc._id.toString()).emit('newMessage', systemMsg);
+          }
         }
 
         // 🔥 REAL-TIME SOCKET EMIT (if global.io exists)

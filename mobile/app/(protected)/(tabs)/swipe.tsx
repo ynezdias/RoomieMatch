@@ -16,10 +16,13 @@ import Animated, {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'expo-router'
+import { LinearGradient } from 'expo-linear-gradient'
+import { Ionicons } from '@expo/vector-icons'
 import api from '@/services/api'
 import { connectSocket } from '@/src/sockets'
 
 const SCREEN_WIDTH = Dimensions.get('window').width
+const SCREEN_HEIGHT = Dimensions.get('window').height
 
 export default function SwipeScreen() {
   const router = useRouter()
@@ -100,7 +103,10 @@ export default function SwipeScreen() {
     })
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }],
+    transform: [
+      { translateX: translateX.value },
+      { rotate: `${translateX.value / 20}deg` }
+    ],
   }))
 
   const matchStyle = useAnimatedStyle(() => ({
@@ -143,12 +149,31 @@ export default function SwipeScreen() {
               style={[
                 styles.card,
                 i === 1 && animatedStyle,
-                { top: i * 10 },
+                { zIndex: i === 1 ? 10 : 1, transform: i === 0 ? [{ scale: 0.95 }] : [] },
               ]}
             >
-              <Text style={styles.name}>{p.userId?.name}</Text>
-              <Text style={styles.sub}>{p.university}</Text>
-              <Text style={styles.sub}>{p.city}</Text>
+              <LinearGradient
+                colors={['#1e293b', '#0f172a']}
+                style={styles.cardGradient}
+              >
+                <View style={styles.infoContainer}>
+                  <Text style={styles.name}>{p.userId?.name}</Text>
+                  
+                  <View style={styles.detailRow}>
+                    <Ionicons name="school-outline" size={16} color="#9ca3af" />
+                    <Text style={styles.sub}>{p.university}</Text>
+                  </View>
+
+                  <View style={styles.detailRow}>
+                    <Ionicons name="location-outline" size={16} color="#9ca3af" />
+                    <Text style={styles.sub}>{p.city}</Text>
+                  </View>
+
+                  <View style={styles.budgetBadge}>
+                    <Text style={styles.budgetText}>Budget: ${p.budget}/mo</Text>
+                  </View>
+                </View>
+              </LinearGradient>
             </Animated.View>
           </GestureDetector>
         ))}
@@ -212,29 +237,64 @@ const styles = StyleSheet.create({
   },
   card: {
     position: 'absolute',
-    width: '88%',
-    height: 420,
+    width: SCREEN_WIDTH * 0.88,
+    height: SCREEN_HEIGHT * 0.6,
     backgroundColor: '#020617',
-    borderRadius: 22,
+    borderRadius: 24,
+    overflow: 'hidden',
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
     borderWidth: 1,
-    borderColor: '#1f2937',
+    borderColor: '#1e293b',
+  },
+  cardGradient: {
+    flex: 1,
+    padding: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 8,
+  },
+  infoContainer: {
+    alignItems: 'center',
+    width: '100%',
   },
   name: {
-    fontSize: 26,
-    fontWeight: '800',
+    fontSize: 32,
+    fontWeight: '900',
     color: '#f8fafc',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   sub: {
-    marginTop: 6,
-    fontSize: 14,
+    fontSize: 16,
     color: '#9ca3af',
+    marginLeft: 8,
+    fontWeight: '500',
+  },
+  budgetBadge: {
+    marginTop: 20,
+    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(34, 197, 94, 0.3)',
+  },
+  budgetText: {
+    color: '#22c55e',
+    fontSize: 16,
+    fontWeight: '700',
   },
   modal: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.85)',
+    backgroundColor: 'rgba(0,0,0,0.9)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -245,27 +305,33 @@ const styles = StyleSheet.create({
     fontSize: 100,
   },
   match: {
-    fontSize: 30,
-    fontWeight: '800',
+    fontSize: 36,
+    fontWeight: '900',
     color: '#fff',
-    marginBottom: 20,
+    marginBottom: 30,
+    letterSpacing: 1.5,
   },
   continue: {
-    color: '#9ca3af', // Change color to be less prominent
+    color: '#9ca3af',
     fontSize: 16,
     fontWeight: '500',
-    marginTop: 10,
+    marginTop: 15,
   },
   messageBtn: {
     backgroundColor: '#22c55e',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 30,
-    marginBottom: 10,
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    borderRadius: 32,
+    elevation: 4,
+    shadowColor: '#22c55e',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
   },
   messageText: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 20,
+    fontWeight: '800',
   },
 })
+

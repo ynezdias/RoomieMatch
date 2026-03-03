@@ -79,4 +79,41 @@ router.get('/:matchId', async (req, res) => {
   res.json(messages)
 })
 
+router.post('/get-or-create/:targetUserId', async (req, res) => {
+  try {
+    const currentUserId = req.user.id
+    const { targetUserId } = req.params
+
+    if (currentUserId === targetUserId) {
+      return res.status(400).json({ error: "You cannot chat with yourself" })
+    }
+
+    // 1. Check if match already exists
+    let match = await Match.findOne({
+      users: { $all: [currentUserId, targetUserId] },
+    })
+
+    // 2. If not, create it
+    if (!match) {
+      match = new Match({
+        users: [currentUserId, targetUserId],
+      })
+      await match.save()
+
+      // Create a system message
+      await Message.create({
+        matchId: match._id,
+        sender: currentUserId,
+        text: "You started a conversation!",
+        type: 'system',
+      })
+    }
+
+    res.json({ matchId: match._id })
+  } catch (err) {
+    console.error('Get-or-create match error:', err)
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
 module.exports = router

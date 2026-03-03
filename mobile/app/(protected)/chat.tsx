@@ -27,7 +27,7 @@ import MediaPicker from '@/src/components/MediaPicker'
 
 export default function ChatScreen() {
   const { user } = useAuth()
-  const { matchId } = useLocalSearchParams()
+  const { matchId, initialMessage } = useLocalSearchParams()
   const { colors } = useTheme()
 
   const [messages, setMessages] = useState<any[]>([])
@@ -63,6 +63,24 @@ export default function ChatScreen() {
         if (!mounted || !socket) return
         socketRef.current = socket
         socket.emit('joinMatch', matchId)
+
+        // 🔥 AUTO-SEND INITIAL MESSAGE IF PROVIDED
+        if (initialMessage && typeof initialMessage === 'string') {
+            // Wait a bit for messages to load to check if any exist
+            setTimeout(() => {
+                setMessages(prev => {
+                    // Only send if it's the first message or if we want to force it
+                    // Actually the request says "directly take you to chat with them and send a message"
+                    // So we should probably check if we already sent this hi message
+                    const alreadySent = prev.some(m => m.text === initialMessage && (m.sender === user._id || m.sender?._id === user._id))
+                    
+                    if (!alreadySent) {
+                        sendMessage(initialMessage)
+                    }
+                    return prev
+                })
+            }, 1000)
+        }
 
         socket.on('newMessage', (msg) => {
             setMessages((prev) => [...prev, msg])
@@ -205,14 +223,23 @@ export default function ChatScreen() {
   const renderItem = ({ item }) => {
       const isMe = item.sender === user._id || item.sender?._id === user._id
       const isDeleted = item.isDeleted
+      const isSystem = item.type === 'system'
+
+      if (isSystem) {
+          return (
+              <View style={styles.systemContainer}>
+                  <Text style={styles.systemText}>{item.text}</Text>
+              </View>
+          )
+      }
 
       return (
           <Pressable 
             onLongPress={() => isMe && !isDeleted && deleteMessage(item._id)}
             style={[
               styles.bubble, 
-              isMe ? { alignSelf: 'flex-end', backgroundColor: colors.bubbleSelf } 
-                   : { alignSelf: 'flex-start', backgroundColor: colors.bubbleOther }
+              isMe ? { alignSelf: 'flex-end', backgroundColor: colors.bubbleSelf, borderBottomRightRadius: 4 } 
+                   : { alignSelf: 'flex-start', backgroundColor: colors.bubbleOther, borderBottomLeftRadius: 4 }
             ]}
           >
               {isDeleted ? (
@@ -231,7 +258,7 @@ export default function ChatScreen() {
                         />
                     )}
                     {!!item.text && (
-                        <Text style={{ color: isMe ? '#fff' : colors.text }}>{item.text}</Text>
+                        <Text style={{ color: isMe ? '#fff' : colors.text, fontSize: 16 }}>{item.text}</Text>
                     )}
                     
                     <View style={styles.metaRow}>
@@ -370,5 +397,22 @@ const styles = StyleSheet.create({
       justifyContent: 'center',
       backgroundColor: 'rgba(0,0,0,0.3)',
       padding: 10
+  },
+  systemContainer: {
+      alignSelf: 'center',
+      backgroundColor: 'rgba(0,0,0,0.05)',
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 20,
+      marginVertical: 12,
+      borderWidth: 1,
+      borderColor: 'rgba(0,0,0,0.1)',
+  },
+  systemText: {
+      fontSize: 13,
+      color: '#64748b',
+      fontWeight: '600',
+      fontStyle: 'italic',
+      textAlign: 'center',
   }
 })

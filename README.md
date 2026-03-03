@@ -3,7 +3,11 @@
 
 RoomieMatch is a full-stack mobile application designed to simplify the stressful process of finding compatible roommates and flatmates. By combining a **Tinder-style swipe interface** with a **Machine Learning recommendation engine**, RoomieMatch moves beyond simple filtering to provide high-compatibility suggestions based on lifestyle, budget, and location.
 
-<img width="300" height="600" alt="image" src="https://github.com/user-attachments/assets/b76958bc-d5df-437f-a56f-a19a3aca6592" />
+<img width="200" height="400" alt="image" src="https://github.com/user-attachments/assets/c25d5c3f-4e98-46c4-9ca9-632a885f49f7" />
+<img width="200" height="400" alt="image" src="https://github.com/user-attachments/assets/bf16bdfd-e43c-4bf8-bd05-76935ae71cd4" />
+<img width="200" height="400" alt="image" src="https://github.com/user-attachments/assets/6ffc0c22-099c-47f3-805b-42d2f177b068" />
+<img width="200" height="400" alt="image" src="https://github.com/user-attachments/assets/6549824e-912f-4ebd-b673-72b40857c2f9" />
+
 
 
 ## 🚀 Key Features

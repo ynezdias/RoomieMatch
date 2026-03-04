@@ -1,0 +1,5 @@
+✅ Connected to DB for seeding
+Current user count: 37
+✅ Created 20 users
+✅ Created 20 profiles
+🌱 Seeding complete!

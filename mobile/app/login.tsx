@@ -1,4 +1,4 @@
-import { View, Text, TextInput, Pressable, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, Pressable, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,14 +11,20 @@ export default function LoginScreen() {
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
+    if (!email || !password) return alert('Please fill in all fields');
+    
+    setLoading(true);
     try {
       const res = await api.post('/auth/login', { email, password });
       await login(res.data.token, res.data.user);
     } catch (err: any) {
       console.log('LOGIN ERROR:', err.response?.data || err.message);
-      alert(JSON.stringify(err.response?.data || err.message));
+      alert(err.response?.data?.msg || 'Login failed. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -61,14 +67,18 @@ export default function LoginScreen() {
                 />
             </View>
 
-            <Pressable style={styles.button} onPress={handleLogin}>
+            <Pressable style={styles.button} onPress={handleLogin} disabled={loading}>
                 <LinearGradient 
                     colors={['#ce0000', '#990000']} 
                     start={{ x: 0, y: 0 }} 
                     end={{ x: 1, y: 0 }}
                     style={styles.gradientButton}
                 >
-                    <Text style={styles.buttonText}>Login</Text>
+                    {loading ? (
+                        <ActivityIndicator color="#fff" />
+                    ) : (
+                        <Text style={styles.buttonText}>Login</Text>
+                    )}
                 </LinearGradient>
             </Pressable>
 

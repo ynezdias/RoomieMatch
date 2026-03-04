@@ -10,14 +10,16 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
-  Modal
+  Modal,
+  TouchableOpacity
 } from 'react-native'
-import { useLocalSearchParams, Stack } from 'expo-router'
+import { useLocalSearchParams, Stack, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { Image } from 'expo-image'
 import { Video, ResizeMode } from 'expo-av'
 import * as FileSystem from 'expo-file-system'
 import * as Haptics from 'expo-haptics'
+import { LinearGradient } from 'expo-linear-gradient'
 
 import api from '@/services/api'
 import { connectSocket } from '@/src/sockets'
@@ -78,21 +80,21 @@ export default function ChatScreen() {
         socketRef.current = socket
         socket.emit('joinMatch', matchId)
 
-        // 🔥 AUTO-SEND INITIAL MESSAGE IF PROVIDED
-        if (initialMessage && typeof initialMessage === 'string') {
-            setTimeout(() => {
-                setMessages(prev => {
-                    const alreadySent = prev.some(m => m.text === initialMessage && (m.sender === user._id || m.sender?._id === user._id))
-                    if (!alreadySent) {
-                        sendMessage(initialMessage)
-                    }
-                    return prev
-                })
-            }, 1000)
-        }
-
         socket.on('newMessage', (msg) => {
-            setMessages((prev) => [msg, ...prev]) // Push to front for inverted list
+            setMessages((prev) => {
+                // If it's a message from ME, check if it matches an optimistic temp message
+                if (msg.sender === user._id || msg.sender?._id === user._id) {
+                    const exists = prev.some(m => m.isTemp && m.text === msg.text && m.type === msg.type)
+                    if (exists) {
+                        return prev.map(m => (m.isTemp && m.text === msg.text) ? msg : m)
+                    }
+                }
+                
+                // Avoid duplication if message already exists (e.g. from a reload)
+                if (prev.some(m => m._id === msg._id)) return prev
+                
+                return [msg, ...prev]
+            })
             markSeen([msg._id])
         })
 
@@ -161,6 +163,22 @@ export default function ChatScreen() {
       if (type === 'text' && !content.trim()) return
 
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+
+      // Optimistic Update
+      const tempId = `temp-${Date.now()}`
+      const newMessage = {
+          _id: tempId,
+          matchId,
+          sender: user?._id,
+          text: content,
+          type,
+          mediaUrl,
+          createdAt: new Date().toISOString(),
+          seenBy: [],
+          isTemp: true
+      }
+
+      setMessages(prev => [newMessage, ...prev])
 
       socketRef.current.emit('sendMessage', {
           matchId,
@@ -246,12 +264,12 @@ export default function ChatScreen() {
             onLongPress={() => isMe && !isDeleted && deleteMessage(item._id)}
             style={[
               styles.bubble, 
-              isMe ? { alignSelf: 'flex-end', backgroundColor: '#3b82f6', borderBottomRightRadius: 4 } 
-                   : { alignSelf: 'flex-start', backgroundColor: '#1e293b', borderBottomLeftRadius: 4 }
+              isMe ? styles.myBubble : styles.partnerBubble
             ]}
           >
+              {isMe && <LinearGradient colors={['#6366f1', '#4f46e5']} style={StyleSheet.absoluteFillObject} /> }
               {isDeleted ? (
-                  <Text style={{ fontStyle: 'italic', color: '#94a3b8' }}>Message deleted</Text>
+                  <Text style={{ fontStyle: 'italic', color: isMe ? 'rgba(255,255,255,0.7)' : '#8696a0' }}>Message deleted</Text>
               ) : (
                   <>
                     {item.type === 'image' && (
@@ -266,18 +284,18 @@ export default function ChatScreen() {
                         />
                     )}
                     {!!item.text && (
-                        <Text style={{ color: '#fff', fontSize: 16 }}>{item.text}</Text>
+                        <Text style={{ color: isMe ? '#fff' : '#e9edef', fontSize: 16 }}>{item.text}</Text>
                     )}
                     
                     <View style={styles.metaRow}>
-                        <Text style={styles.time}>
-                            {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        <Text style={[styles.time, { color: isMe ? 'rgba(255,255,255,0.7)' : '#8696a0' }]}>
+                            {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
                         </Text>
                         {isMe && (
                             <Ionicons 
-                                name={item.seenBy?.length > 0 ? "checkmark-done" : "checkmark"} 
-                                size={14} 
-                                color={item.seenBy?.length > 0 ? "#4DD0E1" : "rgba(255,255,255,0.7)"} 
+                                name="checkmark-done" 
+                                size={16} 
+                                color={item.seenBy?.length > 0 ? "#53bdeb" : "rgba(255,255,255,0.5)"} 
                                 style={{ marginLeft: 4 }}
                             />
                         )}
@@ -289,16 +307,18 @@ export default function ChatScreen() {
   }
 
   return (
+    <View style={[styles.container, { backgroundColor: '#020617' }]}>
+    <LinearGradient colors={['#020617', '#1e1b4b']} style={StyleSheet.absoluteFillObject} />
     <KeyboardAvoidingView 
-        style={[styles.container, { backgroundColor: '#020617' }]} 
+        style={{ flex: 1 }} 
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 95 : 0}
     >
       <Stack.Screen options={{ 
           headerLeft: () => (
             <View style={styles.headerPartner}>
-                <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 12 }}>
-                    <Ionicons name="chevron-back" size={28} color="#fff" />
+                <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 8 }}>
+                    <Ionicons name="arrow-back" size={24} color="#fff" />
                 </TouchableOpacity>
                 <Image 
                     source={{ uri: partner?.photo || `https://ui-avatars.com/api/?name=${partner?.name}` }} 
@@ -306,25 +326,34 @@ export default function ChatScreen() {
                 />
                 <View style={{ marginLeft: 10 }}>
                     <Text style={styles.headerName} numberOfLines={1}>{partner?.name || 'Loading...'}</Text>
-                    <Text style={styles.headerSub} numberOfLines={1}>{partnerTyping ? 'Typing...' : partner?.email?.split('@')[0] || partner?.name?.toLowerCase().replace(' ', '.')}</Text>
+                    <Text style={styles.headerSub} numberOfLines={1}>{partnerTyping ? 'typing...' : 'online'}</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={12} color="#94a3b8" style={{ marginLeft: 4 }} />
             </View>
           ),
           headerTitle: '',
-          headerStyle: { backgroundColor: '#020617' },
+          headerStyle: { backgroundColor: '#0b141a' },
           headerShadowVisible: false,
           headerRight: () => (
             <View style={styles.headerActions}>
                 <TouchableOpacity style={styles.headerActionBtn}>
-                    <Ionicons name="call-outline" size={24} color="#fff" />
+                    <Ionicons name="videocam" size={22} color="#fff" />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.headerActionBtn}>
-                    <Ionicons name="videocam-outline" size={26} color="#fff" />
+                    <Ionicons name="call" size={20} color="#fff" />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.headerActionBtn}>
+                    <Ionicons name="ellipsis-vertical" size={20} color="#fff" />
                 </TouchableOpacity>
             </View>
           )
       }} />
+
+      <Image 
+        source={{ uri: 'https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png' }} 
+        style={StyleSheet.absoluteFillObject}
+        contentFit="cover"
+        alpha={0.05}
+      />
 
       <FlatList
         data={messages}
@@ -336,43 +365,37 @@ export default function ChatScreen() {
       />
 
       <View style={styles.bottomBar}>
-          <View style={[styles.inputContainer, { backgroundColor: '#1e293b' }]}>
-              <TouchableOpacity style={styles.cameraBtn} onPress={() => setPickerVisible(true)}>
-                  <View style={styles.cameraIconBg}>
-                      <Ionicons name="camera" size={20} color="#fff" />
-                  </View>
+          <View style={styles.inputContainer}>
+              <TouchableOpacity style={styles.emojiBtn}>
+                  <Ionicons name="happy-outline" size={24} color="#85959f" />
               </TouchableOpacity>
               
               <TextInput
                   style={styles.input}
                   value={text}
                   onChangeText={handleTyping}
-                  placeholder="Message..."
-                  placeholderTextColor="#94a3b8"
+                  placeholder="Message"
+                  placeholderTextColor="#85959f"
                   multiline
               />
 
-              {text.trim() ? (
-                <TouchableOpacity onPress={() => sendMessage()} style={styles.sendTextBtn}>
-                    <Text style={styles.sendTextLabel}>Send</Text>
-                </TouchableOpacity>
-              ) : (
-                <View style={styles.inputIconsRight}>
-                    <TouchableOpacity style={styles.inputActionIcon}>
-                        <Ionicons name="mic-outline" size={24} color="#fff" />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.inputActionIcon} onPress={() => setPickerVisible(true)}>
-                        <Ionicons name="image-outline" size={24} color="#fff" />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.inputActionIcon}>
-                        <Ionicons name="happy-outline" size={24} color="#fff" />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.inputActionIcon}>
-                        <Ionicons name="add-circle-outline" size={24} color="#fff" />
-                    </TouchableOpacity>
-                </View>
+              <TouchableOpacity style={styles.attachBtn}>
+                  <Ionicons name="attach" size={24} color="#85959f" style={{ transform: [{ rotate: '315deg' }] }} />
+              </TouchableOpacity>
+              
+              {!text.trim() && (
+                  <TouchableOpacity style={styles.attachBtn} onPress={() => setPickerVisible(true)}>
+                      <Ionicons name="camera" size={24} color="#85959f" />
+                  </TouchableOpacity>
               )}
           </View>
+
+          <TouchableOpacity 
+            onPress={() => text.trim() ? sendMessage() : null} 
+            style={[styles.micBtn, { backgroundColor: text.trim() ? '#00a884' : '#00a884' }]}
+          >
+              <Ionicons name={text.trim() ? "send" : "mic"} size={22} color="#fff" />
+          </TouchableOpacity>
       </View>
 
       <MediaPicker 
@@ -389,6 +412,7 @@ export default function ChatScreen() {
           </View>
       )}
     </KeyboardAvoidingView>
+    </View>
   )
 }
 
@@ -397,126 +421,145 @@ const styles = StyleSheet.create({
   headerPartner: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingLeft: 4,
   },
   headerAvatar: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
+      width: 42,
+      height: 42,
+      borderRadius: 21,
       backgroundColor: '#1e293b',
+      borderWidth: 1.5,
+      borderColor: '#6366f1',
   },
   headerName: {
       color: '#fff',
-      fontSize: 15,
-      fontWeight: '700',
+      fontSize: 17,
+      fontWeight: '800',
   },
   headerSub: {
-      color: '#94a3b8',
+      color: '#a5b4fc',
       fontSize: 12,
+      fontWeight: '600',
   },
   headerActions: {
       flexDirection: 'row',
       alignItems: 'center',
   },
   headerActionBtn: {
-      marginLeft: 20,
+      marginLeft: 18,
   },
   bubble: {
-      maxWidth: '75%',
-      paddingHorizontal: 14,
+      maxWidth: '85%',
+      paddingHorizontal: 16,
       paddingVertical: 10,
-      borderRadius: 18,
-      marginVertical: 2,
+      marginVertical: 4,
+      borderRadius: 20,
+      overflow: 'hidden',
+  },
+  myBubble: {
+    alignSelf: 'flex-end',
+    borderBottomRightRadius: 4,
+    elevation: 4,
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  partnerBubble: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(30, 41, 59, 0.8)',
+    borderBottomLeftRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   mediaImage: {
-      width: 200,
+      width: 260,
       height: 200,
-      borderRadius: 18,
-      marginBottom: 5
+      borderRadius: 12,
+      marginBottom: 6
   },
   mediaVideo: {
-      width: 200,
+      width: 260,
       height: 200,
-      borderRadius: 18,
-      marginBottom: 5,
+      borderRadius: 12,
+      marginBottom: 6,
       backgroundColor: '#000'
   },
   metaRow: {
       flexDirection: 'row',
       justifyContent: 'flex-end',
       alignItems: 'center',
-      marginTop: 2
+      marginTop: 4,
   },
   time: {
       fontSize: 10,
-      color: 'rgba(255,255,255, 0.4)'
+      color: '#85959f'
   },
   bottomBar: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
       paddingHorizontal: 12,
-      paddingBottom: Platform.OS === 'ios' ? 24 : 12,
+      paddingBottom: Platform.OS === 'ios' ? 30 : 12,
       paddingTop: 8,
   },
   inputContainer: {
+      flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
-      borderRadius: 24,
-      paddingHorizontal: 4,
+      backgroundColor: 'rgba(30, 41, 59, 0.7)',
+      borderRadius: 28,
+      paddingHorizontal: 12,
+      marginRight: 8,
+      borderWidth: 1,
+      borderColor: 'rgba(255, 255, 255, 0.1)',
   },
-  cameraBtn: {
-    padding: 4,
+  emojiBtn: {
+      padding: 6,
   },
-  cameraIconBg: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#3b82f6',
-    justifyContent: 'center',
-    alignItems: 'center',
+  attachBtn: {
+      padding: 6,
   },
   input: {
       flex: 1,
       color: '#fff',
       fontSize: 16,
-      paddingHorizontal: 12,
-      paddingVertical: 10,
+      paddingHorizontal: 8,
+      paddingVertical: 12,
       maxHeight: 120,
   },
-  inputIconsRight: {
-      flexDirection: 'row',
+  micBtn: {
+      width: 52,
+      height: 52,
+      borderRadius: 26,
+      justifyContent: 'center',
       alignItems: 'center',
-      paddingRight: 8,
-  },
-  inputActionIcon: {
-      marginLeft: 12,
-  },
-  sendTextBtn: {
-    paddingHorizontal: 16,
-  },
-  sendTextLabel: {
-    color: '#3b82f6',
-    fontWeight: '700',
-    fontSize: 16,
+      backgroundColor: '#6366f1',
+      elevation: 6,
+      shadowColor: '#6366f1',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.4,
+      shadowRadius: 6,
   },
   loadingOverlay: {
       ...StyleSheet.absoluteFillObject,
-      backgroundColor: 'rgba(0,0,0,0.5)',
+      backgroundColor: 'rgba(0,0,0,0.7)',
       alignItems: 'center', 
       justifyContent: 'center',
       zIndex: 100,
   },
   systemContainer: {
       alignSelf: 'center',
+      backgroundColor: 'rgba(99, 102, 241, 0.1)',
       paddingHorizontal: 16,
       paddingVertical: 8,
-      borderRadius: 20,
-      marginVertical: 12,
+      borderRadius: 12,
+      marginVertical: 16,
+      borderWidth: 1,
+      borderColor: 'rgba(99, 102, 241, 0.2)',
   },
   systemText: {
       fontSize: 12,
-      color: '#64748b',
+      color: '#a5b4fc',
       fontWeight: '600',
       textAlign: 'center',
-      textTransform: 'uppercase',
-      letterSpacing: 1,
   }
 })

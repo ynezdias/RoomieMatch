@@ -247,7 +247,8 @@ export default function ChatScreen() {
 
   const renderItem = ({ item }) => {
       const senderId = item.sender?._id || item.sender
-      const isMe = senderId === user?._id
+      const currentUserId = user?._id || user?.id
+      const isMe = senderId === currentUserId
       const isDeleted = item.isDeleted
       const isSystem = item.type === 'system'
 
@@ -264,10 +265,11 @@ export default function ChatScreen() {
             onLongPress={() => isMe && !isDeleted && deleteMessage(item._id)}
             style={[
               styles.bubble, 
-              isMe ? styles.myBubble : styles.partnerBubble
+              isMe ? styles.myBubble : styles.partnerBubble,
+              { backgroundColor: isMe ? colors.bubbleSelf : colors.bubbleOther }
             ]}
           >
-              {isMe && <LinearGradient colors={['#6366f1', '#4f46e5']} style={StyleSheet.absoluteFillObject} /> }
+              {/* Removed absolute LinearGradient to use theme background color */}
               {isDeleted ? (
                   <Text style={{ fontStyle: 'italic', color: isMe ? 'rgba(255,255,255,0.7)' : '#8696a0' }}>Message deleted</Text>
               ) : (
@@ -288,7 +290,7 @@ export default function ChatScreen() {
                     )}
                     
                     <View style={styles.metaRow}>
-                        <Text style={[styles.time, { color: isMe ? 'rgba(255,255,255,0.7)' : '#8696a0' }]}>
+                        <Text style={[styles.time, { color: isMe ? 'rgba(255,255,255,0.7)' : colors.text + '80' }]}>
                             {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
                         </Text>
                         {isMe && (
@@ -307,42 +309,44 @@ export default function ChatScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: '#020617' }]}>
-    <LinearGradient colors={['#020617', '#1e1b4b']} style={StyleSheet.absoluteFillObject} />
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    {/* Removed hardcoded gradient to follow app theme background */}
     <KeyboardAvoidingView 
         style={{ flex: 1 }} 
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 95 : 0}
     >
       <Stack.Screen options={{ 
+          headerShown: true,
           headerLeft: () => (
             <View style={styles.headerPartner}>
                 <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 8 }}>
-                    <Ionicons name="arrow-back" size={24} color="#fff" />
+                    <Ionicons name="arrow-back" size={24} color={colors.text} />
                 </TouchableOpacity>
                 <Image 
-                    source={{ uri: partner?.photo || `https://ui-avatars.com/api/?name=${partner?.name}` }} 
+                    source={{ uri: partner?.profilePicture || partner?.photo || `https://ui-avatars.com/api/?name=${partner?.name}` }} 
                     style={styles.headerAvatar}
                 />
                 <View style={{ marginLeft: 10 }}>
-                    <Text style={styles.headerName} numberOfLines={1}>{partner?.name || 'Loading...'}</Text>
-                    <Text style={styles.headerSub} numberOfLines={1}>{partnerTyping ? 'typing...' : 'online'}</Text>
+                    <Text style={[styles.headerName, { color: colors.text }]} numberOfLines={1}>{partner?.name || 'Loading...'}</Text>
+                    <Text style={[styles.headerSub, { color: colors.primary }]} numberOfLines={1}>{partnerTyping ? 'typing...' : 'online'}</Text>
                 </View>
             </View>
           ),
           headerTitle: '',
-          headerStyle: { backgroundColor: '#0b141a' },
+          headerStyle: { backgroundColor: colors.background },
           headerShadowVisible: false,
+          headerBackVisible: false,
           headerRight: () => (
             <View style={styles.headerActions}>
                 <TouchableOpacity style={styles.headerActionBtn}>
-                    <Ionicons name="videocam" size={22} color="#fff" />
+                    <Ionicons name="videocam" size={22} color={colors.primary} />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.headerActionBtn}>
-                    <Ionicons name="call" size={20} color="#fff" />
+                    <Ionicons name="call" size={20} color={colors.primary} />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.headerActionBtn}>
-                    <Ionicons name="ellipsis-vertical" size={20} color="#fff" />
+                    <Ionicons name="ellipsis-vertical" size={20} color={colors.primary} />
                 </TouchableOpacity>
             </View>
           )
@@ -365,17 +369,17 @@ export default function ChatScreen() {
       />
 
       <View style={styles.bottomBar}>
-          <View style={styles.inputContainer}>
+          <View style={[styles.inputContainer, { backgroundColor: colors.secondary + '20', borderColor: colors.border }]}>
               <TouchableOpacity style={styles.emojiBtn}>
-                  <Ionicons name="happy-outline" size={24} color="#85959f" />
+                  <Ionicons name="happy-outline" size={24} color={colors.text + '80'} />
               </TouchableOpacity>
               
               <TextInput
-                  style={styles.input}
+                  style={[styles.input, { color: colors.text }]}
                   value={text}
                   onChangeText={handleTyping}
                   placeholder="Message"
-                  placeholderTextColor="#85959f"
+                  placeholderTextColor={colors.text + '60'}
                   multiline
               />
 
@@ -392,7 +396,7 @@ export default function ChatScreen() {
 
           <TouchableOpacity 
             onPress={() => text.trim() ? sendMessage() : null} 
-            style={[styles.micBtn, { backgroundColor: text.trim() ? '#00a884' : '#00a884' }]}
+            style={[styles.micBtn, { backgroundColor: colors.primary }]}
           >
               <Ionicons name={text.trim() ? "send" : "mic"} size={22} color="#fff" />
           </TouchableOpacity>
@@ -428,7 +432,7 @@ const styles = StyleSheet.create({
       borderRadius: 21,
       backgroundColor: '#1e293b',
       borderWidth: 1.5,
-      borderColor: '#6366f1',
+      borderColor: '#ce0000',
   },
   headerName: {
       color: '#fff',

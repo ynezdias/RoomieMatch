@@ -319,12 +319,14 @@ export default function ChatScreen() {
       <Stack.Screen options={{ 
           headerShown: true,
           headerLeft: () => (
+            <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 10 }}>
+                <Ionicons name="arrow-back" size={24} color={colors.text} />
+            </TouchableOpacity>
+          ),
+          headerTitle: () => (
             <View style={styles.headerPartner}>
-                <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 8 }}>
-                    <Ionicons name="arrow-back" size={24} color={colors.text} />
-                </TouchableOpacity>
                 <Image 
-                    source={{ uri: partner?.profilePicture || partner?.photo || `https://ui-avatars.com/api/?name=${partner?.name}` }} 
+                    source={{ uri: partner?.photo || partner?.profilePicture || `https://ui-avatars.com/api/?name=${partner?.name}` }} 
                     style={styles.headerAvatar}
                 />
                 <View style={{ marginLeft: 10 }}>
@@ -333,7 +335,6 @@ export default function ChatScreen() {
                 </View>
             </View>
           ),
-          headerTitle: '',
           headerStyle: { backgroundColor: colors.background },
           headerShadowVisible: false,
           headerBackVisible: false,

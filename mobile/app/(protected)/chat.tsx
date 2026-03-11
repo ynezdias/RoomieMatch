@@ -290,14 +290,14 @@ export default function ChatScreen() {
                     )}
                     
                     <View style={styles.metaRow}>
-                        <Text style={[styles.time, { color: isMe ? 'rgba(255,255,255,0.7)' : colors.text + '80' }]}>
+                        <Text style={[styles.time, { color: isMe ? 'rgba(255,255,255,0.85)' : colors.text + '90' }]}>
                             {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
                         </Text>
                         {isMe && (
                             <Ionicons 
                                 name="checkmark-done" 
-                                size={16} 
-                                color={item.seenBy?.length > 0 ? "#53bdeb" : "rgba(255,255,255,0.5)"} 
+                                size={15} 
+                                color={item.seenBy?.length > 0 ? "#4ade80" : "rgba(255,255,255,0.6)"} 
                                 style={{ marginLeft: 4 }}
                             />
                         )}
@@ -436,14 +436,17 @@ const styles = StyleSheet.create({
       borderColor: '#ce0000',
   },
   headerName: {
-      color: '#fff',
-      fontSize: 17,
-      fontWeight: '800',
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: 0.2,
   },
   headerSub: {
-      color: '#a5b4fc',
-      fontSize: 12,
-      fontWeight: '600',
+    color: '#94a3b8',
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   headerActions: {
       flexDirection: 'row',
@@ -463,18 +466,28 @@ const styles = StyleSheet.create({
   myBubble: {
     alignSelf: 'flex-end',
     borderBottomRightRadius: 4,
-    elevation: 4,
-    shadowColor: '#6366f1',
-    shadowOffset: { width: 0, height: 2 },
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderBottomLeftRadius: 24,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
-    shadowRadius: 4,
+    shadowRadius: 6,
   },
   partnerBubble: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(30, 41, 59, 0.8)',
+    backgroundColor: 'rgba(30, 41, 59, 0.95)',
     borderBottomLeftRadius: 4,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderBottomRightRadius: 24,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   mediaImage: {
       width: 260,
@@ -507,15 +520,19 @@ const styles = StyleSheet.create({
       paddingTop: 8,
   },
   inputContainer: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: 'rgba(30, 41, 59, 0.7)',
-      borderRadius: 28,
-      paddingHorizontal: 12,
-      marginRight: 8,
-      borderWidth: 1,
-      borderColor: 'rgba(255, 255, 255, 0.1)',
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 30,
+    paddingHorizontal: 14,
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   emojiBtn: {
       padding: 6,
@@ -532,17 +549,17 @@ const styles = StyleSheet.create({
       maxHeight: 120,
   },
   micBtn: {
-      width: 52,
-      height: 52,
-      borderRadius: 26,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: '#6366f1',
-      elevation: 6,
-      shadowColor: '#6366f1',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.4,
-      shadowRadius: 6,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#ce0000',
+    elevation: 10,
+    shadowColor: '#ce0000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
   },
   loadingOverlay: {
       ...StyleSheet.absoluteFillObject,

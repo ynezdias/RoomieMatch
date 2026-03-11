@@ -405,9 +405,9 @@ export default function ChatScreen() {
       <MediaPicker 
           visible={pickerVisible}
           onClose={() => setPickerVisible(false)}
-          onPickImage={(asset) => uploadMedia(asset, 'image')}
-          onPickVideo={(asset) => uploadMedia(asset, 'video')}
-          onPickDocument={(doc) => uploadMedia(doc, 'file')}
+          onPickImage={(asset: any) => uploadMedia(asset, 'image')}
+          onPickVideo={(asset: any) => uploadMedia(asset, 'video')}
+          onPickDocument={(doc: any) => uploadMedia(doc, 'file')}
       />
 
       {uploading && (

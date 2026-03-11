@@ -131,6 +131,32 @@ router.post('/get-or-create/:targetUserId', auth, async (req, res) => {
   }
 })
 
+router.delete('/:matchId', auth, async (req, res) => {
+  try {
+    const { matchId } = req.params
+    const userId = req.user.id
+
+    const match = await Match.findById(matchId)
+    if (!match) return res.status(404).json({ error: 'Match not found' })
+
+    // Verify user is part of the match
+    if (!match.users.includes(userId)) {
+      return res.status(403).json({ error: 'Unauthorized to delete this chat' })
+    }
+
+    // Delete all messages
+    await Message.deleteMany({ matchId })
+
+    // Delete match
+    await Match.findByIdAndDelete(matchId)
+
+    res.json({ success: true, message: 'Chat deleted' })
+  } catch (err) {
+    console.error('Delete match error:', err)
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
 router.get('/match/:matchId', auth, async (req, res) => {
   try {
     const match = await Match.findById(req.params.matchId).populate({

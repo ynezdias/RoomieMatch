@@ -11,7 +11,8 @@ import {
   Platform,
   Alert,
   Modal,
-  TouchableOpacity
+  TouchableOpacity,
+  SafeAreaView
 } from 'react-native'
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
@@ -205,6 +206,48 @@ export default function ChatScreen() {
       ])
   }
 
+  const handleDeleteChat = () => {
+    console.log('Delete chat clicked')
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)
+    Alert.alert(
+      'Chat Options',
+      'What would you like to do?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete Conversation', 
+          style: 'destructive', 
+          onPress: () => confirmDeleteChat() 
+        }
+      ]
+    )
+  }
+
+  const confirmDeleteChat = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)
+    Alert.alert(
+      'Are you sure?',
+      'This will permanently delete all messages for both users.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete Everything', 
+          style: 'destructive', 
+          onPress: async () => {
+            try {
+              await api.delete(`/chat/${matchId}`)
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+              router.back()
+            } catch (err) {
+              console.error('Failed to delete chat:', err)
+              Alert.alert('Error', 'Could not delete conversation')
+            }
+          } 
+        }
+      ]
+    )
+  }
+
   const uploadMedia = async (asset: any, type: string) => {
       try {
           setUploading(true)
@@ -310,43 +353,47 @@ export default function ChatScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Stack.Screen options={{ 
-          headerShown: true,
-          headerLeft: () => (
-            <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 16 }}>
-                <Ionicons name="arrow-back" size={26} color={colors.text} />
-            </TouchableOpacity>
-          ),
-          headerTitle: () => (
-            <View style={styles.headerPartner}>
-                <Image 
-                    source={{ uri: partner?.photo || `https://ui-avatars.com/api/?name=${partner?.name || 'User'}&background=random` }} 
-                    style={styles.headerAvatar}
-                />
-                <View style={{ marginLeft: 12 }}>
-                    <Text style={[styles.headerName, { color: colors.text }]} numberOfLines={1}>{partner?.name || 'Loading...'}</Text>
-                    <Text style={[styles.headerSub, { color: colors.primary }]} numberOfLines={1}>{partnerTyping ? 'typing...' : 'online'}</Text>
-                </View>
+      <SafeAreaView style={{ flex: 0, backgroundColor: colors.background }} />
+      
+      {/* CUSTOM HEADER */}
+      <View style={[styles.customHeader, { backgroundColor: colors.background, borderBottomColor: colors.border + '40' }]}>
+        <View style={styles.headerLeftContainer}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <Ionicons name="arrow-back" size={26} color={colors.text} />
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.headerPartner}>
+            <Image 
+              source={{ uri: partner?.photo || `https://ui-avatars.com/api/?name=${partner?.name || 'User'}&background=random` }} 
+              style={styles.headerAvatar}
+            />
+            <View style={{ marginLeft: 12 }}>
+              <Text style={[styles.headerName, { color: colors.text }]} numberOfLines={1}>
+                {partner?.name || 'Loading...'}
+              </Text>
+              <Text style={[styles.headerSub, { color: partnerTyping ? colors.primary : colors.text + '70' }]} numberOfLines={1}>
+                {partnerTyping ? 'typing...' : 'online'}
+              </Text>
             </View>
-          ),
-          headerStyle: { backgroundColor: colors.background },
-          headerShadowVisible: false,
-          headerBackVisible: false,
-          headerTitleAlign: 'left',
-          headerRight: () => (
-            <View style={styles.headerActions}>
-                <TouchableOpacity style={styles.headerActionBtn}>
-                    <Ionicons name="videocam" size={22} color={colors.primary} />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.headerActionBtn}>
-                    <Ionicons name="call" size={20} color={colors.primary} />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.headerActionBtn}>
-                    <Ionicons name="ellipsis-vertical" size={20} color={colors.primary} />
-                </TouchableOpacity>
-            </View>
-          )
-      }} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.headerActionBtn}>
+            <Ionicons name="videocam" size={22} color={colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.headerActionBtn}>
+            <Ionicons name="call" size={20} color={colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.headerActionBtn} 
+            onPress={handleDeleteChat}
+            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+          >
+            <Ionicons name="ellipsis-vertical" size={20} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
+      </View>
 
     <KeyboardAvoidingView 
         style={{ flex: 1 }} 
@@ -423,9 +470,29 @@ export default function ChatScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  customHeader: {
+    height: 60,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    zIndex: 100,
+    elevation: 10,
+  },
+  headerLeftContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  backBtn: {
+    padding: 8,
+  },
   headerPartner: {
       flexDirection: 'row',
       alignItems: 'center',
+      flex: 1,
+      marginLeft: 4,
   },
   headerAvatar: {
       width: 40,
@@ -453,7 +520,8 @@ const styles = StyleSheet.create({
       alignItems: 'center',
   },
   headerActionBtn: {
-      marginLeft: 18,
+      padding: 10,
+      marginLeft: 8,
   },
   bubble: {
       maxWidth: '85%',

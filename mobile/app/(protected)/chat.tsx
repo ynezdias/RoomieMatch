@@ -310,26 +310,20 @@ export default function ChatScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-    {/* Removed hardcoded gradient to follow app theme background */}
-    <KeyboardAvoidingView 
-        style={{ flex: 1 }} 
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 95 : 0}
-    >
       <Stack.Screen options={{ 
           headerShown: true,
           headerLeft: () => (
-            <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 10 }}>
-                <Ionicons name="arrow-back" size={24} color={colors.text} />
+            <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 16 }}>
+                <Ionicons name="arrow-back" size={26} color={colors.text} />
             </TouchableOpacity>
           ),
           headerTitle: () => (
             <View style={styles.headerPartner}>
                 <Image 
-                    source={{ uri: partner?.photo || partner?.profilePicture || `https://ui-avatars.com/api/?name=${partner?.name}` }} 
+                    source={{ uri: partner?.photo || `https://ui-avatars.com/api/?name=${partner?.name || 'User'}&background=random` }} 
                     style={styles.headerAvatar}
                 />
-                <View style={{ marginLeft: 10 }}>
+                <View style={{ marginLeft: 12 }}>
                     <Text style={[styles.headerName, { color: colors.text }]} numberOfLines={1}>{partner?.name || 'Loading...'}</Text>
                     <Text style={[styles.headerSub, { color: colors.primary }]} numberOfLines={1}>{partnerTyping ? 'typing...' : 'online'}</Text>
                 </View>
@@ -338,6 +332,7 @@ export default function ChatScreen() {
           headerStyle: { backgroundColor: colors.background },
           headerShadowVisible: false,
           headerBackVisible: false,
+          headerTitleAlign: 'left',
           headerRight: () => (
             <View style={styles.headerActions}>
                 <TouchableOpacity style={styles.headerActionBtn}>
@@ -352,6 +347,12 @@ export default function ChatScreen() {
             </View>
           )
       }} />
+
+    <KeyboardAvoidingView 
+        style={{ flex: 1 }} 
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 95 : 0}
+    >
 
       <Image 
         source={{ uri: 'https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png' }} 
@@ -427,12 +428,12 @@ const styles = StyleSheet.create({
       alignItems: 'center',
   },
   headerAvatar: {
-      width: 42,
-      height: 42,
-      borderRadius: 21,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
       backgroundColor: '#1e293b',
       borderWidth: 1.5,
-      borderColor: '#ce0000',
+      borderColor: 'rgba(255,255,255,0.1)',
   },
   headerName: {
     color: '#fff',

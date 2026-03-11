@@ -1,4 +1,4 @@
-import { Slot, useRouter } from 'expo-router'
+import { Stack, useRouter } from 'expo-router'
 import { useAuth } from '@/src/context/AuthContext'
 import { useEffect } from 'react'
 import { View, ActivityIndicator } from 'react-native'
@@ -21,5 +21,10 @@ export default function ProtectedLayout() {
     )
   }
 
-  return <Slot />
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="chat" options={{ headerShown: true }} />
+    </Stack>
+  )
 }

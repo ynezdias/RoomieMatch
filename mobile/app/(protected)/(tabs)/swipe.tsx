@@ -20,6 +20,7 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import api from '@/services/api'
 import { connectSocket } from '@/src/sockets'
+import { Image } from 'expo-image'
 
 const SCREEN_WIDTH = Dimensions.get('window').width
 const SCREEN_HEIGHT = Dimensions.get('window').height
@@ -152,26 +153,33 @@ export default function SwipeScreen() {
                 { zIndex: i === 1 ? 10 : 1, transform: i === 0 ? [{ scale: 0.95 }] : [] },
               ]}
             >
+              <Image 
+                source={{ uri: p.photo || p.profilePicture || `https://ui-avatars.com/api/?name=${p.userId?.name}` }}
+                style={StyleSheet.absoluteFillObject}
+                contentFit="cover"
+              />
               <LinearGradient
-                colors={['#1e293b', '#0f172a']}
+                colors={['transparent', 'rgba(0,0,0,0.8)', 'rgba(0,0,0,1)']}
                 style={styles.cardGradient}
               >
                 <View style={styles.infoContainer}>
                   <Text style={styles.name}>{p.userId?.name}</Text>
                   
                   <View style={styles.detailRow}>
-                    <Ionicons name="school-outline" size={16} color="#9ca3af" />
+                    <Ionicons name="school" size={18} color="#ce0000" />
                     <Text style={styles.sub}>{p.university}</Text>
                   </View>
 
                   <View style={styles.detailRow}>
-                    <Ionicons name="location-outline" size={16} color="#9ca3af" />
+                    <Ionicons name="location" size={18} color="#ce0000" />
                     <Text style={styles.sub}>{p.city}</Text>
                   </View>
 
                   <View style={styles.budgetBadge}>
-                    <Text style={styles.budgetText}>Budget: ${p.budget}/mo</Text>
+                    <Text style={styles.budgetText}>${p.budget}/mo</Text>
                   </View>
+                  
+                  <Text style={styles.about} numberOfLines={3}>{p.aboutMe}</Text>
                 </View>
               </LinearGradient>
             </Animated.View>
@@ -237,35 +245,37 @@ const styles = StyleSheet.create({
   },
   card: {
     position: 'absolute',
-    width: SCREEN_WIDTH * 0.88,
-    height: SCREEN_HEIGHT * 0.6,
-    backgroundColor: '#020617',
-    borderRadius: 24,
+    width: SCREEN_WIDTH * 0.92,
+    height: SCREEN_HEIGHT * 0.72,
+    backgroundColor: '#111827',
+    borderRadius: 32,
     overflow: 'hidden',
-    elevation: 10,
+    elevation: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
-    shadowRadius: 10,
+    shadowRadius: 15,
     borderWidth: 1,
-    borderColor: '#1e293b',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   cardGradient: {
-    flex: 1,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '60%',
     padding: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'flex-end',
   },
   infoContainer: {
-    alignItems: 'center',
     width: '100%',
   },
   name: {
-    fontSize: 32,
+    fontSize: 34,
     fontWeight: '900',
-    color: '#f8fafc',
-    marginBottom: 16,
-    textAlign: 'center',
+    color: '#fff',
+    marginBottom: 10,
+    letterSpacing: -0.5,
   },
   detailRow: {
     flexDirection: 'row',
@@ -273,24 +283,34 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   sub: {
-    fontSize: 16,
-    color: '#9ca3af',
-    marginLeft: 8,
-    fontWeight: '500',
+    fontSize: 17,
+    color: '#e5e7eb',
+    marginLeft: 10,
+    fontWeight: '600',
   },
   budgetBadge: {
-    marginTop: 20,
-    backgroundColor: 'rgba(206, 0, 0, 0.15)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    marginTop: 12,
+    backgroundColor: '#ce0000',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(206, 0, 0, 0.3)',
+    alignSelf: 'flex-start',
+    shadowColor: '#ce0000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
   },
   budgetText: {
-    color: '#ce0000',
-    fontSize: 16,
-    fontWeight: '700',
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  about: {
+    color: '#d1d5db',
+    fontSize: 15,
+    marginTop: 16,
+    lineHeight: 22,
+    fontWeight: '400',
   },
   modal: {
     flex: 1,

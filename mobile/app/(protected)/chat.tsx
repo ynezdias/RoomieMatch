@@ -135,12 +135,12 @@ export default function ChatScreen() {
 
   /* ===================== ACTIONS ===================== */
 
-  const markSeen = useCallback((ids) => {
+  const markSeen = useCallback((ids: string[]) => {
       if (!socketRef.current || ids.length === 0) return
       socketRef.current.emit('markSeen', { matchId, messageIds: ids })
   }, [matchId])
 
-  const handleTyping = (val) => {
+  const handleTyping = (val: string) => {
       setText(val)
       
       if (!socketRef.current) return
@@ -190,7 +190,7 @@ export default function ChatScreen() {
       if (type === 'text') setText('')
   }
 
-  const deleteMessage = (messageId) => {
+  const deleteMessage = (messageId: string) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
       Alert.alert('Delete Message', 'Are you sure?', [
           { text: 'Cancel', style: 'cancel' },
@@ -205,7 +205,7 @@ export default function ChatScreen() {
       ])
   }
 
-  const uploadMedia = async (asset, type) => {
+  const uploadMedia = async (asset: any, type: string) => {
       try {
           setUploading(true)
           
@@ -245,7 +245,7 @@ export default function ChatScreen() {
 
   /* ===================== RENDER ===================== */
 
-  const renderItem = ({ item }) => {
+  const renderItem = ({ item }: { item: any }) => {
       const senderId = item.sender?._id || item.sender
       const currentUserId = user?._id || user?.id
       const isMe = senderId === currentUserId
@@ -355,9 +355,8 @@ export default function ChatScreen() {
 
       <Image 
         source={{ uri: 'https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png' }} 
-        style={StyleSheet.absoluteFillObject}
+        style={[StyleSheet.absoluteFillObject, { opacity: 0.05 }]}
         contentFit="cover"
-        alpha={0.05}
       />
 
       <FlatList

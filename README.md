@@ -3,10 +3,13 @@
 
 RoomieMatch is a full-stack mobile application designed to simplify the stressful process of finding compatible roommates and flatmates. By combining a **Tinder-style swipe interface** with a **Machine Learning recommendation engine**, RoomieMatch moves beyond simple filtering to provide high-compatibility suggestions based on lifestyle, budget, and location.
 
-<img width="200" height="400" alt="image" src="https://github.com/user-attachments/assets/c25d5c3f-4e98-46c4-9ca9-632a885f49f7" />
-<img width="200" height="400" alt="image" src="https://github.com/user-attachments/assets/bf16bdfd-e43c-4bf8-bd05-76935ae71cd4" />
-<img width="200" height="400" alt="image" src="https://github.com/user-attachments/assets/6ffc0c22-099c-47f3-805b-42d2f177b068" />
-<img width="200" height="400" alt="image" src="https://github.com/user-attachments/assets/6549824e-912f-4ebd-b673-72b40857c2f9" />
+<img width="200" height="400" alt="image" src="https://github.com/user-attachments/assets/3cc63f2c-2977-49bf-a5db-b9c97ece014d" />
+<img width="200" height="400" alt="image" src="https://github.com/user-attachments/assets/45c3b296-3574-45a1-a5ea-8d132aa95e61" />
+<img width="200" height="400" alt="image" src="https://github.com/user-attachments/assets/73883df6-a644-481a-b55d-53ea9fccec93" />
+<img width="200" height="400" alt="image" src="https://github.com/user-attachments/assets/9bfc3cde-6a37-44a6-ae9a-f4e06b6d4b08" />
+
+<img width="200" height="400" alt="image" src="https://github.com/user-attachments/assets/767ee109-0218-4b95-aaa0-b3fe5007ae37" />
+<img width="200" height="400" alt="image" src="https://github.com/user-attachments/assets/c8f957b9-3eeb-41c9-9022-26f0309bdeff" />
 
 
 

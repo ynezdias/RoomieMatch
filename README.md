@@ -128,3 +128,5 @@ npx expo start
 ---
 
 **Would you like me to generate the Python script for the Scikit-learn Matching Model to get your ML service started?**
+
+**Ynez Dias**

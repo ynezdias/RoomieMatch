@@ -2,7 +2,7 @@ const Swipe = require('../models/Swipe');
 const Match = require('../models/Match');
 const Profile = require('../models/Profile');
 const Message = require('../models/Message');
-
+// THIS IS FOR STUDY 
 /**
  * GET SWIPE SUGGESTIONS
  * Returns all profiles EXCEPT current user's profile AND people already swiped on

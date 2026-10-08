@@ -5,7 +5,15 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useTheme } from '../context/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 
-export default function MediaPicker({ visible, onClose, onPickImage, onPickVideo, onPickDocument }) {
+type MediaPickerProps = {
+    visible: boolean;
+    onClose: () => void;
+    onPickImage: (asset: ImagePicker.ImagePickerAsset) => void;
+    onPickVideo: (asset: ImagePicker.ImagePickerAsset) => void;
+    onPickDocument: (asset: DocumentPicker.DocumentPickerAsset) => void;
+};
+
+export default function MediaPicker({ visible, onClose, onPickImage, onPickVideo, onPickDocument }: MediaPickerProps) {
     const { colors } = useTheme();
 
     const pickImage = async () => {
@@ -86,7 +94,14 @@ export default function MediaPicker({ visible, onClose, onPickImage, onPickVideo
     );
 }
 
-const Option = ({ icon, label, onPress, colors }) => (
+type OptionProps = {
+    icon: React.ComponentProps<typeof Ionicons>['name'];
+    label: string;
+    onPress: () => void;
+    colors: ReturnType<typeof useTheme>['colors'];
+};
+
+const Option = ({ icon, label, onPress, colors }: OptionProps) => (
     <TouchableOpacity style={styles.option} onPress={onPress}>
         <View style={[styles.iconBox, { backgroundColor: colors.secondary }]}>
             <Ionicons name={icon} size={24} color={colors.primary} />

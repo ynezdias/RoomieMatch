@@ -1,9 +1,8 @@
 import { io, Socket } from 'socket.io-client'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { SOCKET_URL } from '../services/config'
 
 let socket: Socket | null = null
-
-const SOCKET_URL = 'http://192.168.1.159:5000' // same as API base URL
 
 export const connectSocket = async (userId: string) => {
   if (socket) return socket

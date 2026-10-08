@@ -10,9 +10,9 @@ router.put('/profile', auth, async (req, res) => {
   try {
     const updatedUser = await User.findByIdAndUpdate(
       req.user._id,
-      req.body,
-      { new: true }
-    );
+      { name: typeof req.body.name === 'string' ? req.body.name.trim() : req.user.name },
+      { new: true, runValidators: true }
+    ).select('-password');
     res.json(updatedUser);
   } catch (err) {
     res.status(500).json({ error: 'Failed to update profile' });

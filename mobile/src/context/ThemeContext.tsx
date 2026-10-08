@@ -32,7 +32,7 @@ const ThemeContext = createContext({
     toggleTheme: () => {},
 });
 
-export const ThemeProvider = ({ children }) => {
+export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     const systemScheme = useColorScheme();
     const [isDark, setIsDark] = useState(systemScheme === 'dark');
 

@@ -1,10 +1,8 @@
 import React, { useState, useRef } from 'react'
-import { View, Text, FlatList, StyleSheet, Dimensions, TouchableOpacity } from 'react-native'
+import { View, Text, FlatList, StyleSheet, Platform, TouchableOpacity, useWindowDimensions, ViewToken } from 'react-native'
 import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
-
-const { width } = Dimensions.get('window')
 
 const slides = [
     {
@@ -25,29 +23,34 @@ const slides = [
         description: 'Safety first. We verify profiles to ensure you are talking to real people.',
         icon: 'shield-checkmark'
     }
-]
+] as const
 
 export default function OnboardingScreen() {
     const router = useRouter()
+    const { width } = useWindowDimensions()
     const [currentIndex, setCurrentIndex] = useState(0)
-    const flatListRef = useRef(null)
+    const flatListRef = useRef<FlatList<(typeof slides)[number]>>(null)
 
     const handleNext = () => {
         if (currentIndex < slides.length - 1) {
-            flatListRef.current.scrollToIndex({ index: currentIndex + 1 })
+            const nextIndex = currentIndex + 1
+            if (Platform.OS !== 'web') {
+                flatListRef.current?.scrollToIndex({ index: nextIndex })
+            }
+            setCurrentIndex(nextIndex)
         } else {
             router.replace('/register')
         }
     }
 
-    const onViewableItemsChanged = useRef(({ viewableItems }) => {
-        if (viewableItems.length > 0) {
+    const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+        if (viewableItems.length > 0 && viewableItems[0].index !== null) {
             setCurrentIndex(viewableItems[0].index)
         }
     }).current
 
-    const renderItem = ({ item }) => (
-        <View style={styles.slide}>
+    const renderItem = ({ item }: { item: (typeof slides)[number] }) => (
+        <View style={[styles.slide, { width }]}>
             <View style={styles.iconContainer}>
                 <Ionicons name={item.icon} size={100} color="#ce0000" />
             </View>
@@ -63,7 +66,11 @@ export default function OnboardingScreen() {
                 style={StyleSheet.absoluteFill}
             />
             
-            <FlatList
+            {Platform.OS === 'web' ? (
+                <View style={styles.webSlide}>
+                    {renderItem({ item: slides[currentIndex] })}
+                </View>
+            ) : <FlatList
                 ref={flatListRef}
                 data={slides}
                 renderItem={renderItem}
@@ -73,7 +80,8 @@ export default function OnboardingScreen() {
                 keyExtractor={item => item.id}
                 onViewableItemsChanged={onViewableItemsChanged}
                 viewabilityConfig={{ viewAreaCoveragePercentThreshold: 50 }}
-            />
+                getItemLayout={(_, index) => ({ length: width, offset: width * index, index })}
+            />}
 
             <View style={styles.footer}>
                 <View style={styles.pagination}>
@@ -109,10 +117,14 @@ const styles = StyleSheet.create({
         backgroundColor: '#020617',
     },
     slide: {
-        width,
         justifyContent: 'center',
         alignItems: 'center',
         padding: 40,
+    },
+    webSlide: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     iconContainer: {
         width: 200,

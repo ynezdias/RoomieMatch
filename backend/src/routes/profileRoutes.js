@@ -9,7 +9,9 @@ router.put('/', auth, async (req, res) => {
   console.log('🔥 PROFILE ROUTE HIT')
 
   try {
-    const { photo, ...otherData } = req.body;
+    const { photo } = req.body;
+    const allowedFields = ['aboutMe', 'university', 'city', 'state', 'country', 'budget', 'smoking', 'pets', 'furniture', 'lookingFor'];
+    const otherData = Object.fromEntries(allowedFields.filter(key => req.body[key] !== undefined).map(key => [key, req.body[key]]));
     let profileData = { ...otherData, userId: req.user.id };
 
     // Upload photo if present and is a base64 string
@@ -23,6 +25,7 @@ router.put('/', auth, async (req, res) => {
         console.log('✅ Cloudinary URL:', uploadRes.secure_url)
       } catch (uploadErr) {
         console.error('❌ Cloudinary Upload Error:', uploadErr.message)
+        return res.status(502).json({ message: 'Photo upload failed. Please try again.' })
       }
     } else if (photo) {
       // If it's already a URL, keep it
@@ -43,7 +46,7 @@ router.put('/', auth, async (req, res) => {
     res.json(profile)
   } catch (err) {
     console.error('❌ PROFILE UPDATE ERROR:', err.message)
-    res.status(500).json({ message: err.message })
+    res.status(err.name === 'ValidationError' ? 400 : 500).json({ message: err.name === 'ValidationError' ? err.message : 'Unable to save profile.' })
   }
 })
 

@@ -4,27 +4,36 @@ import { useState } from 'react'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import api from '../../services/api'
+import { useAuth } from '@/src/context/AuthContext'
 
 export default function Register() {
   const router = useRouter()
+  const { login } = useAuth()
+  const [loading, setLoading] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
 
   const handleRegister = async () => {
+    if (loading) return
+    if (!name.trim() || !email.trim() || password.length < 8) {
+      alert('Enter your name, email, and a password of at least 8 characters.')
+      return
+    }
+    setLoading(true)
     try {
-      await api.post('/auth/register', {
+      const res = await api.post('/auth/register', {
         name,
         email,
         password,
       })
-      await api.post('/auth/login', { email, password })
-
-      alert('Account created. Please login.')
-      router.replace('/')
+      await login(res.data.token, res.data.user)
+      router.replace('/(protected)/(tabs)/profile')
     } catch (err: any) {
       console.log('REGISTER ERROR:', err.response?.data || err.message)
-      alert(JSON.stringify(err.response?.data || err.message))
+      alert(err.response?.data?.msg || 'Could not create your account. Please try again.')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -86,20 +95,20 @@ export default function Register() {
                   />
               </View>
 
-              <TouchableOpacity style={styles.button} onPress={handleRegister}>
+              <TouchableOpacity style={styles.button} onPress={handleRegister} disabled={loading}>
                   <LinearGradient 
                       colors={['#ce0000', '#990000']} 
                       start={{ x: 0, y: 0 }} 
                       end={{ x: 1, y: 0 }}
                       style={styles.gradientButton}
                   >
-                      <Text style={styles.buttonText}>Sign Up</Text>
+                      <Text style={styles.buttonText}>{loading ? 'Creating account...' : 'Sign Up'}</Text>
                   </LinearGradient>
               </TouchableOpacity>
 
               <View style={styles.footer}>
                   <Text style={styles.footerText}>Already have an account? </Text>
-                  <TouchableOpacity onPress={() => router.back()}>
+                  <TouchableOpacity onPress={() => router.replace('/login')}>
                       <Text style={styles.link}>Login</Text>
                   </TouchableOpacity>
               </View>

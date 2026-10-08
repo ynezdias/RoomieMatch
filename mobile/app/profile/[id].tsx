@@ -13,7 +13,18 @@ export default function ProfileDetailScreen() {
   const router = useRouter()
   const { profile } = useLocalSearchParams()
 
-  const data = JSON.parse(profile as string)
+  let data
+  try {
+    data = typeof profile === 'string' ? JSON.parse(profile) : null
+  } catch {
+    data = null
+  }
+  if (!data || typeof data !== 'object') {
+    return <View style={styles.container}>
+      <TouchableOpacity onPress={() => router.back()}><Text style={styles.name}>Back</Text></TouchableOpacity>
+      <Text style={styles.about}>This profile could not be loaded. Open it again from Explore.</Text>
+    </View>
+  }
 
   return (
     <ScrollView style={styles.container}>

@@ -3,6 +3,15 @@ const Message = require('../models/Message')
 const Match = require('../models/Match')
 const Profile = require('../models/Profile')
 const auth = require('../middleware/authMiddleware')
+const mongoose = require('mongoose')
+const User = require('../models/User')
+
+const requireMembership = async (req, res, next) => {
+  if (!mongoose.isObjectIdOrHexString(req.params.matchId)) return res.status(400).json({ error: 'Invalid chat ID' });
+  const match = await Match.findOne({ _id: req.params.matchId, users: req.user.id });
+  if (!match) return res.status(403).json({ error: 'You do not have access to this chat' });
+  next();
+};
 
 router.get('/matches', auth, async (req, res) => {
   try {
@@ -52,7 +61,7 @@ router.get('/matches', auth, async (req, res) => {
   }
 })
 
-router.put('/pin/:matchId', auth, async (req, res) => {
+router.put('/pin/:matchId', auth, requireMembership, async (req, res) => {
   try {
     const match = await Match.findById(req.params.matchId);
     if (!match) return res.status(404).json({ error: 'Match not found' });
@@ -76,7 +85,7 @@ router.put('/pin/:matchId', auth, async (req, res) => {
   }
 });
 
-router.get('/:matchId', auth, async (req, res) => {
+router.get('/:matchId', auth, requireMembership, async (req, res) => {
   try {
     const messages = await Message.find({
       matchId: req.params.matchId,
@@ -94,13 +103,14 @@ router.post('/get-or-create/:targetUserId', auth, async (req, res) => {
     const currentUserId = req.user.id
     const { targetUserId } = req.params
 
-    if (!targetUserId || targetUserId === 'undefined') {
+    if (!mongoose.isObjectIdOrHexString(targetUserId)) {
       return res.status(400).json({ error: "Invalid target user ID" })
     }
 
     if (currentUserId === targetUserId) {
       return res.status(400).json({ error: "You cannot chat with yourself" })
     }
+    if (!await User.exists({ _id: targetUserId })) return res.status(404).json({ error: 'User not found' });
 
     // 1. Check if match already exists
     let match = await Match.findOne({
@@ -157,7 +167,7 @@ router.delete('/:matchId', auth, async (req, res) => {
   }
 })
 
-router.get('/match/:matchId', auth, async (req, res) => {
+router.get('/match/:matchId', auth, requireMembership, async (req, res) => {
   try {
     const match = await Match.findById(req.params.matchId).populate({
       path: 'users',

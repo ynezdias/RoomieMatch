@@ -18,13 +18,11 @@
 
 import axios from 'axios'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { Platform } from 'react-native'
+import { API_URL } from './config'
 
 const API = axios.create({
-  baseURL: Platform.select({
-    web: 'http://localhost:5000/api',
-    default: 'http://192.168.1.159:5000/api', // 👈 your Expo IP
-  }),
+  baseURL: API_URL,
+  timeout: 20000,
 })
 
 API.interceptors.request.use(

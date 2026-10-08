@@ -1,9 +1,18 @@
 require('dotenv').config() // ✅ MUST BE FIRST LINE
 
+// Some networks cannot resolve Atlas SRV records through their default DNS.
+if (process.env.DNS_SERVERS) {
+  require('node:dns').setServers(process.env.DNS_SERVERS.split(',').map(server => server.trim()).filter(Boolean))
+}
+
 const http = require('http')
 const mongoose = require('mongoose')
+mongoose.set('bufferCommands', false)
 const { Server } = require('socket.io')
 const jwt = require('jsonwebtoken')
+if (!process.env.JWT_SECRET || (process.env.NODE_ENV === 'production' && process.env.JWT_SECRET.length < 32)) {
+  throw new Error('Set JWT_SECRET; production requires at least 32 characters.')
+}
 
 const app = require('./src/app')
 
@@ -18,14 +27,16 @@ const startServer = async () => {
     console.log('Connecting to MongoDB Atlas...');
     await mongoose.connect(mongoUri, {
       serverSelectionTimeoutMS: 5000,
+      connectTimeoutMS: 5000,
       autoIndex: true
     });
     console.log('✅ MongoDB Atlas connected');
 
   } catch (err) {
     console.error('❌ DATABASE CONNECTION ERROR:', err.message);
-    console.error('⚠️ The server will start, but database operations will fail.');
+    console.error('⚠️ API requests will return 503 until the database is connected.');
     console.error('👉 Please check your MONGO_URI and IP Whitelist on MongoDB Atlas.');
+    if (process.env.NODE_ENV === 'production') process.exit(1);
     // We don't exit(1) here to let the process stay alive for debugging if needed, 
     // but we've removed the silent in-memory fallback that causes data loss.
   }
@@ -42,7 +53,7 @@ const server = http.createServer(app)
 
 /* ===================== SOCKET.IO ===================== */
 const io = new Server(server, {
-  cors: { origin: '*' },
+  cors: { origin: process.env.CORS_ORIGINS?.split(',').map(origin => origin.trim()).filter(Boolean) || true },
 })
 
 /* ---------- Socket Auth Middleware ---------- */
@@ -65,35 +76,42 @@ io.on('connection', (socket) => {
 
   socket.join(socket.userId)
 
-  socket.on('joinMatch', async (matchId) => {
+  socket.on('joinMatch', async (matchId, acknowledge = () => {}) => {
     try {
       const Match = require('./src/models/Match');
       const match = await Match.findOne({ _id: matchId, users: socket.userId });
       if (match) {
         socket.join(matchId);
+        acknowledge({ ok: true });
       } else {
         console.warn(`⚠️ User ${socket.userId} tried to join unauthorized match ${matchId}`);
+        acknowledge({ ok: false });
       }
     } catch (err) {
       console.error('❌ joinMatch error:', err);
+      acknowledge({ ok: false });
     }
   })
 
   // Typing Indicators
   socket.on('typing', async ({ matchId }) => {
+    try {
     const Match = require('./src/models/Match');
     const match = await Match.findOne({ _id: matchId, users: socket.userId });
     if (match) {
       socket.to(matchId).emit('typing', { userId: socket.userId, matchId });
     }
+    } catch (err) { console.error('Typing event failed:', err.name); }
   });
 
   socket.on('stopTyping', async ({ matchId }) => {
+    try {
     const Match = require('./src/models/Match');
     const match = await Match.findOne({ _id: matchId, users: socket.userId });
     if (match) {
       socket.to(matchId).emit('stopTyping', { userId: socket.userId, matchId });
     }
+    } catch (err) { console.error('Typing event failed:', err.name); }
   });
 
   // Mark as Seen
@@ -176,6 +194,10 @@ io.on('connection', (socket) => {
 })
 
 global.io = io
+
+io.on('connection', socket => {
+  socket.on('leaveMatch', matchId => socket.leave(matchId))
+})
 
 /* ===================== START ===================== */
 const PORT = process.env.PORT || 5000

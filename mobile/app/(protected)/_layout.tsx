@@ -11,7 +11,7 @@ export default function ProtectedLayout() {
     if (!loading && !user) {
       router.replace('/')
     }
-  }, [loading, user])
+  }, [loading, user, router])
 
   if (loading) {
     return (
@@ -21,5 +21,5 @@ export default function ProtectedLayout() {
     )
   }
 
-  return <Slot />
+  return user ? <Slot /> : null
 }

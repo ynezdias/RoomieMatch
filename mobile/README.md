@@ -1,50 +1,44 @@
-# Welcome to your Expo app 👋
+# RoomieMatch client
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+This Expo SDK 54 application serves the RoomieMatch website and Android/iOS clients. It uses Expo Router, React Native, TypeScript, and a responsive red-and-black dark theme. For complete project setup, features, demo accounts, and MongoDB instructions, see the [root README](../README.md).
 
-## Get started
+## Development
 
-1. Install dependencies
+Use Node.js 24 LTS. Start the Express backend separately and configure its private environment file as described in the root README.
 
-   ```bash
-   npm install
-   ```
+From this directory:
 
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```powershell
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
+npm ci
+npm run web
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+For native development, use `npm start`, `npm run android`, or `npm run ios` with the appropriate device/emulator tooling. An iOS simulator requires macOS; Windows can export an iOS bundle and use EAS for remote builds.
 
-## Learn more
+## API configuration
 
-To learn more about developing your project with Expo, look at the following resources:
+| Environment | `EXPO_PUBLIC_API_URL` |
+| --- | --- |
+| Local browser | Leave unset to use `http://localhost:5000/api` |
+| Android emulator | Leave unset to use `http://10.0.2.2:5000/api` |
+| Physical phone | Set `http://YOUR_COMPUTER_LAN_IP:5000/api` |
+| Root Vercel website | Leave unset for same-origin HTTPS `/api` |
+| Native production | Set `https://YOUR_PROJECT.vercel.app/api` |
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+Restart Expo after changing environment variables. Public client variables must never contain MongoDB passwords, JWT secrets, or Cloudinary API secrets. Uploads request a signature from the backend, then upload directly to Cloudinary. The current chat client uses persistent HTTP messages with polling.
 
-## Join the community
+## Validation and builds
 
-Join our community of developers creating universal apps.
+```powershell
+npm run typecheck
+npm run lint
+npm run test:security
+npm run build:web
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Web output is generated in `dist/`. `npm ci` runs `scripts/dependency-compat.cjs` to adapt older Expo consumers to patched URI-decoder and image-parser APIs. Keep this postinstall step enabled. See the [security review](../SECURITY_REVIEW.md) for the dependency overrides, regression tests, and remaining tooling advisories.
+
+`eas.json` contains development, preview, and production profiles. Native bundle exports have passed; signed device builds and store publication have not been performed. See the [deployment guide](../DEPLOYMENT.md) for identifiers, private hosting settings, signing, and device testing. No website/app deployment has been made.
+
+Avoid `npm run reset-project` during normal development: it is the original Expo starter reset script, not a data/profile reset command.

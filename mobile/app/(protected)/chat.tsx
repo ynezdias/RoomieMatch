@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   View,
   Text,
@@ -6,650 +6,499 @@ import {
   TextInput,
   Pressable,
   StyleSheet,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Alert,
-  Modal,
-  TouchableOpacity,
-  SafeAreaView
+  Linking,
+  ActivityIndicator,
+  AppState,
 } from 'react-native'
-import { useLocalSearchParams, Stack, useRouter } from 'expo-router'
-import { Ionicons } from '@expo/vector-icons'
 import { Image } from 'expo-image'
 import { Video, ResizeMode } from 'expo-av'
-import * as FileSystem from 'expo-file-system'
-import * as Haptics from 'expo-haptics'
-import { LinearGradient } from 'expo-linear-gradient'
-
+import { Ionicons } from '@expo/vector-icons'
+import { useLocalSearchParams, useRouter } from 'expo-router'
 import api from '@/services/api'
-import { connectSocket } from '@/src/sockets'
 import { useAuth } from '@/src/context/AuthContext'
-import { useTheme } from '@/src/context/ThemeContext'
 import MediaPicker from '@/src/components/MediaPicker'
+import { uploadAsset } from '@/services/uploads'
+import { palette as p, displayFont } from '@/constants/design'
 
 export default function ChatScreen() {
   const { user } = useAuth()
-  const { matchId, initialMessage } = useLocalSearchParams()
-  const { colors } = useTheme()
+  const { matchId: param } = useLocalSearchParams<{ matchId: string }>()
+  const matchId = Array.isArray(param) ? param[0] : param
   const router = useRouter()
-
+  const userId = user?._id || user?.id
   const [messages, setMessages] = useState<any[]>([])
   const [partner, setPartner] = useState<any>(null)
   const [text, setText] = useState('')
-  const [isTyping, setIsTyping] = useState(false)
-  const [partnerTyping, setPartnerTyping] = useState(false)
-  const [pickerVisible, setPickerVisible] = useState(false)
+  const [notice, setNotice] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [picker, setPicker] = useState(false)
   const [uploading, setUploading] = useState(false)
-
-  const socketRef = useRef<any>(null)
-  const typingTimeoutRef = useRef<any>(null)
-  
-  /* ===================== SETUP ===================== */
-  
+  const [sendingCount, setSendingCount] = useState(0)
+  const [deletingConversation, setDeletingConversation] = useState(false)
+  const deletingRoom = useRef(false)
+  const deletingMessages = useRef(new Set<string>())
+  const [deletingIds, setDeletingIds] = useState<string[]>([])
+  const list = useRef<FlatList>(null)
+  const atBottom = useRef(true)
+  const sending = useRef(new Set<string>())
+  const alive = useRef(true)
+  const currentRoom = useRef(matchId)
+  currentRoom.current = matchId
   useEffect(() => {
-    if (!user || !matchId) return
-
-    let mounted = true
-    
-    // Load partner details for header
-    const loadPartner = async () => {
-        try {
-            const res = await api.get(`/chat/match/${matchId}`)
-            if (mounted) setPartner(res.data.partner)
-        } catch (err) {
-            console.log('Error loading partner:', err)
-        }
-    }
-
-    // Load initial messages
-    const loadMessages = async () => {
-        try {
-            const res = await api.get(`/chat/${matchId}`)
-            if (mounted) setMessages(res.data)
-        } catch (err) {
-            console.log('Error loading chat:', err)
-        }
-    }
-
-    loadPartner()
-    loadMessages()
-
-    // Connect Socket
-    connectSocket(user._id).then((socket) => {
-        if (!mounted || !socket) return
-        socketRef.current = socket
-        socket.emit('joinMatch', matchId)
-
-        socket.on('newMessage', (msg) => {
-            setMessages((prev) => {
-                // If it's a message from ME, check if it matches an optimistic temp message
-                if (msg.sender === user._id || msg.sender?._id === user._id) {
-                    const exists = prev.some(m => m.isTemp && m.text === msg.text && m.type === msg.type)
-                    if (exists) {
-                        return prev.map(m => (m.isTemp && m.text === msg.text) ? msg : m)
-                    }
-                }
-                
-                // Avoid duplication if message already exists (e.g. from a reload)
-                if (prev.some(m => m._id === msg._id)) return prev
-                
-                return [msg, ...prev]
-            })
-            markSeen([msg._id])
-        })
-
-        socket.on('typing', ({ userId }) => {
-            if (userId !== user._id) setPartnerTyping(true)
-        })
-
-        socket.on('stopTyping', ({ userId }) => {
-            if (userId !== user._id) setPartnerTyping(false)
-        })
-
-        socket.on('messageSeen', ({ messageIds, seenBy }) => {
-             setMessages(prev => prev.map(msg => 
-                 messageIds.includes(msg._id) 
-                 ? { ...msg, seenBy: [...(msg.seenBy || []), seenBy] }
-                 : msg
-             ))
-        })
-
-        socket.on('messageDeleted', ({ messageId }) => {
-            setMessages(prev => prev.map(msg => 
-                msg._id === messageId ? { ...msg, isDeleted: true } : msg
-            ))
-        })
-    })
-
+    alive.current = true
     return () => {
-        mounted = false
-        if (socketRef.current) {
-            socketRef.current.off('newMessage')
-            socketRef.current.off('typing')
-            socketRef.current.off('stopTyping')
-            socketRef.current.off('messageSeen')
-            socketRef.current.off('messageDeleted')
-        }
+      alive.current = false
     }
-  }, [matchId, user])
-
-  /* ===================== ACTIONS ===================== */
-
-  const markSeen = useCallback((ids: string[]) => {
-      if (!socketRef.current || ids.length === 0) return
-      socketRef.current.emit('markSeen', { matchId, messageIds: ids })
-  }, [matchId])
-
-  const handleTyping = (val: string) => {
-      setText(val)
-      
-      if (!socketRef.current) return
-
-      if (!isTyping) {
-          setIsTyping(true)
-          socketRef.current.emit('typing', { matchId })
+  }, [])
+  const sync = useCallback(async () => {
+    const { data } = await api.get('/chat/' + matchId)
+    if (!alive.current || currentRoom.current !== matchId) return
+    setMessages((previous) => {
+      const confirmed = new Set(data.map((m: any) => m.clientId).filter(Boolean))
+      const pending = previous.filter((m) => m.pending && !confirmed.has(m.clientId))
+      return [...data.reverse(), ...pending].sort(
+        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+      )
+    })
+    setNotice('')
+    if (
+      data.some(
+        (m: any) => String(m.sender?._id || m.sender) !== userId && !m.seenBy?.includes(userId),
+      )
+    )
+      await api.put('/chat/' + matchId + '/read')
+  }, [matchId, userId])
+  useEffect(() => {
+    if (!matchId || !userId) return
+    let stopped = false
+    let timer: ReturnType<typeof setTimeout>
+    let busy = false
+    const refresh = async () => {
+      if (stopped || busy) return
+      busy = true
+      try {
+        if (
+          AppState.currentState === 'active' &&
+          (Platform.OS !== 'web' || typeof document === 'undefined' || !document.hidden)
+        )
+          await sync()
+      } catch {
+        if (!stopped) setNotice('Connection interrupted. Messages will sync when you reconnect.')
+      } finally {
+        busy = false
+        if (!stopped) {
+          setLoading(false)
+          timer = setTimeout(refresh, 2500)
+        }
       }
-
-      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
-
-      typingTimeoutRef.current = setTimeout(() => {
-          setIsTyping(false)
-          socketRef.current.emit('stopTyping', { matchId })
-      }, 1500)
-  }
-
-  const sendMessage = async (content = text, type = 'text', mediaUrl = null) => {
-      if (!socketRef.current) return
-      if (type === 'text' && !content.trim()) return
-
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-
-      // Optimistic Update
-      const tempId = `temp-${Date.now()}`
-      const newMessage = {
-          _id: tempId,
-          matchId,
-          sender: user?._id,
-          text: content,
-          type,
-          mediaUrl,
-          createdAt: new Date().toISOString(),
-          seenBy: [],
-          isTemp: true
-      }
-
-      setMessages(prev => [newMessage, ...prev])
-
-      socketRef.current.emit('sendMessage', {
-          matchId,
-          text: content,
-          type,
-          mediaUrl
+    }
+    api
+      .get('/chat/match/' + matchId)
+      .then(({ data }: any) => {
+        if (!stopped) setPartner(data.partner)
       })
-
-      if (type === 'text') setText('')
+      .catch(() => {
+        if (!stopped) setNotice('Could not open this conversation.')
+      })
+    refresh()
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && !busy) {
+        clearTimeout(timer)
+        refresh()
+      }
+    })
+    return () => {
+      stopped = true
+      clearTimeout(timer)
+      subscription.remove()
+    }
+  }, [matchId, userId, sync])
+  const persist = async (message: any) => {
+    if (sending.current.has(message.clientId)) return
+    sending.current.add(message.clientId)
+    setSendingCount(sending.current.size)
+    setMessages((old) =>
+      old.map((m) => (m.clientId === message.clientId ? { ...m, failed: false } : m)),
+    )
+    try {
+      const { data } = await api.post('/chat/' + matchId + '/messages', {
+        clientId: message.clientId,
+        text: message.text,
+        type: message.type,
+        mediaUrl: message.mediaUrl,
+      })
+      if (alive.current)
+        setMessages((old) =>
+          [...old.filter((m) => m.clientId !== message.clientId && m._id !== data._id), data].sort(
+            (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+          ),
+        )
+    } catch {
+      if (alive.current)
+        setMessages((old) =>
+          old.map((m) => (m.clientId === message.clientId ? { ...m, failed: true } : m)),
+        )
+    } finally {
+      sending.current.delete(message.clientId)
+      if (alive.current) setSendingCount(sending.current.size)
+    }
   }
-
-  const deleteMessage = (messageId: string) => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-      Alert.alert('Delete Message', 'Are you sure?', [
-          { text: 'Cancel', style: 'cancel' },
-          { 
-              text: 'Delete', 
-              style: 'destructive', 
-              onPress: () => {
-                  socketRef.current.emit('deleteMessage', { matchId, messageId })
-                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
-              }
-          }
+  const send = (content = text, type = 'text', mediaUrl?: string) => {
+    if (type === 'text' && (!content.trim() || sending.current.size > 0)) return
+    const clientId = 'msg_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2)
+    const message = {
+      _id: clientId,
+      clientId,
+      sender: userId,
+      text: content.trim(),
+      type,
+      mediaUrl,
+      createdAt: new Date().toISOString(),
+      pending: true,
+      seenBy: [],
+    }
+    atBottom.current = true
+    setMessages((old) => [...old, message])
+    if (type === 'text') setText('')
+    return persist(message)
+  }
+  const remove = async (message: any) => {
+    if (deletingMessages.current.has(message._id)) return
+    deletingMessages.current.add(message._id)
+    setDeletingIds([...deletingMessages.current])
+    try {
+      if (message.pending) {
+        setMessages((old) => old.filter((m) => m._id !== message._id))
+        return
+      }
+      const { data } = await api.delete('/chat/' + matchId + '/messages/' + message._id)
+      setMessages((old) => old.map((m) => (m._id === data._id ? data : m)))
+    } catch {
+      setNotice('Could not delete this message. Please try again.')
+    } finally {
+      deletingMessages.current.delete(message._id)
+      if (alive.current) setDeletingIds([...deletingMessages.current])
+    }
+  }
+  const confirmRemove = (message: any) => {
+    if (Platform.OS === 'web') {
+      if (window.confirm('Delete this message?')) remove(message)
+    } else
+      Alert.alert('Delete message?', 'This message will be removed for both people.', [
+        { text: 'Cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => remove(message) },
       ])
   }
-
-  const handleDeleteChat = () => {
-    console.log('Delete chat clicked')
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)
-    Alert.alert(
-      'Chat Options',
-      'What would you like to do?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete Conversation', 
-          style: 'destructive', 
-          onPress: () => confirmDeleteChat() 
-        }
-      ]
-    )
-  }
-
-  const confirmDeleteChat = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)
-    Alert.alert(
-      'Are you sure?',
-      'This will permanently delete all messages for both users.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete Everything', 
-          style: 'destructive', 
-          onPress: async () => {
-            try {
-              await api.delete(`/chat/${matchId}`)
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
-              router.back()
-            } catch (err) {
-              console.error('Failed to delete chat:', err)
-              Alert.alert('Error', 'Could not delete conversation')
-            }
-          } 
-        }
-      ]
-    )
-  }
-
-  const uploadMedia = async (asset: any, type: string) => {
+  const deleteConversation = () => {
+    const erase = async () => {
+      if (deletingRoom.current) return
+      deletingRoom.current = true
+      setDeletingConversation(true)
       try {
-          setUploading(true)
-          
-          let uri = asset.uri
-          let name = asset.fileName || asset.name || `upload_${Date.now()}`
-          let mimeType = asset.mimeType 
-          
-          if (!mimeType) {
-             if (type === 'video') mimeType = 'video/mp4'
-             else if (type === 'image') mimeType = 'image/jpeg'
-          }
-          
-          if (!name.includes('.')) {
-              const ext = mimeType?.split('/')[1] || (type === 'video' ? 'mp4' : 'jpg')
-              name = `${name}.${ext}`
-          }
-
-          const formData = new FormData()
-          formData.append('file', {
-              uri,
-              name,
-              type: mimeType || (type === 'video' ? 'video/mp4' : 'image/jpeg'),
-          } as any)
-
-          const res = await api.post('/upload', formData, {
-              headers: { 'Content-Type': 'multipart/form-data' }
-          })
-
-          sendMessage('', type, res.data.url)
-      } catch (err) {
-          Alert.alert('Upload Failed', 'Could not upload media')
-          console.error(err)
+        await api.delete('/chat/' + matchId)
+        router.replace('/(protected)/(tabs)/matches')
+      } catch {
+        setNotice('Could not delete this conversation. Please try again.')
       } finally {
-          setUploading(false)
+        deletingRoom.current = false
+        if (alive.current) setDeletingConversation(false)
       }
+    }
+    const warning = 'Permanently delete this conversation and all messages for both people?'
+    if (Platform.OS === 'web') {
+      if (window.confirm(warning)) erase()
+    } else
+      Alert.alert('Delete conversation?', warning, [
+        { text: 'Cancel' },
+        { text: 'Delete', style: 'destructive', onPress: erase },
+      ])
   }
-
-  /* ===================== RENDER ===================== */
-
-  const renderItem = ({ item }: { item: any }) => {
-      const senderId = item.sender?._id || item.sender
-      const currentUserId = user?._id || user?.id
-      const isMe = senderId === currentUserId
-      const isDeleted = item.isDeleted
-      const isSystem = item.type === 'system'
-
-      if (isSystem) {
-          return (
-              <View style={styles.systemContainer}>
-                  <Text style={styles.systemText}>{item.text}</Text>
-              </View>
-          )
-      }
-
-      return (
-          <Pressable 
-            onLongPress={() => isMe && !isDeleted && deleteMessage(item._id)}
-            style={[
-              styles.bubble, 
-              isMe ? styles.myBubble : styles.partnerBubble,
-              { backgroundColor: isMe ? colors.bubbleSelf : colors.bubbleOther }
-            ]}
-          >
-              {/* Removed absolute LinearGradient to use theme background color */}
-              {isDeleted ? (
-                  <Text style={{ fontStyle: 'italic', color: isMe ? 'rgba(255,255,255,0.7)' : '#8696a0' }}>Message deleted</Text>
-              ) : (
-                  <>
-                    {item.type === 'image' && (
-                        <Image source={{ uri: item.mediaUrl }} style={styles.mediaImage} contentFit="cover" />
-                    )}
-                    {item.type === 'video' && (
-                        <Video 
-                            source={{ uri: item.mediaUrl }}
-                            style={styles.mediaVideo}
-                            useNativeControls
-                            resizeMode={ResizeMode.CONTAIN}
-                        />
-                    )}
-                    {!!item.text && (
-                        <Text style={{ color: isMe ? '#fff' : '#e9edef', fontSize: 16 }}>{item.text}</Text>
-                    )}
-                    
-                    <View style={styles.metaRow}>
-                        <Text style={[styles.time, { color: isMe ? 'rgba(255,255,255,0.85)' : colors.text + '90' }]}>
-                            {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
-                        </Text>
-                        {isMe && (
-                            <Ionicons 
-                                name="checkmark-done" 
-                                size={15} 
-                                color={item.seenBy?.length > 0 ? "#4ade80" : "rgba(255,255,255,0.6)"} 
-                                style={{ marginLeft: 4 }}
-                            />
-                        )}
-                    </View>
-                  </>
-              )}
-          </Pressable>
-      )
+  const attach = async (asset: any, type: string) => {
+    setPicker(false)
+    setUploading(true)
+    setNotice('')
+    try {
+      const url = await uploadAsset(asset, type)
+      if (alive.current) await send(asset.fileName || asset.name || '', type, url)
+    } catch (error: any) {
+      if (alive.current) setNotice(error.message || 'Could not upload. Please try again.')
+    } finally {
+      if (alive.current) setUploading(false)
+    }
   }
-
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <SafeAreaView style={{ flex: 0, backgroundColor: colors.background }} />
-      
-      {/* CUSTOM HEADER */}
-      <View style={[styles.customHeader, { backgroundColor: colors.background, borderBottomColor: colors.border + '40' }]}>
-        <View style={styles.headerLeftContainer}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={26} color={colors.text} />
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.headerPartner}>
-            <Image 
-              source={{ uri: partner?.photo || `https://ui-avatars.com/api/?name=${partner?.name || 'User'}&background=random` }} 
-              style={styles.headerAvatar}
-            />
-            <View style={{ marginLeft: 12 }}>
-              <Text style={[styles.headerName, { color: colors.text }]} numberOfLines={1}>
-                {partner?.name || 'Loading...'}
-              </Text>
-              <Text style={[styles.headerSub, { color: partnerTyping ? colors.primary : colors.text + '70' }]} numberOfLines={1}>
-                {partnerTyping ? 'typing...' : 'online'}
-              </Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.headerActionBtn}>
-            <Ionicons name="videocam" size={22} color={colors.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.headerActionBtn}>
-            <Ionicons name="call" size={20} color={colors.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.headerActionBtn} 
-            onPress={handleDeleteChat}
-            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+    <KeyboardAvoidingView style={s.page} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <View style={s.frame}>
+        <View style={s.header}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Back to chats"
+            onPress={() => router.replace('/(protected)/(tabs)/matches')}
+            style={s.icon}
           >
-            <Ionicons name="ellipsis-vertical" size={20} color={colors.primary} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-    <KeyboardAvoidingView 
-        style={{ flex: 1 }} 
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 95 : 0}
-    >
-
-      <Image 
-        source={{ uri: 'https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png' }} 
-        style={[StyleSheet.absoluteFillObject, { opacity: 0.05 }]}
-        contentFit="cover"
-      />
-
-      <FlatList
-        data={messages}
-        keyExtractor={(item) => item._id}
-        renderItem={renderItem}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 10 }}
-        inverted={true}
-        showsVerticalScrollIndicator={false}
-      />
-
-      <View style={styles.bottomBar}>
-          <View style={[styles.inputContainer, { backgroundColor: colors.secondary + '20', borderColor: colors.border }]}>
-              <TouchableOpacity style={styles.emojiBtn}>
-                  <Ionicons name="happy-outline" size={24} color={colors.text + '80'} />
-              </TouchableOpacity>
-              
-              <TextInput
-                  style={[styles.input, { color: colors.text }]}
-                  value={text}
-                  onChangeText={handleTyping}
-                  placeholder="Message"
-                  placeholderTextColor={colors.text + '60'}
-                  multiline
-              />
-
-              <TouchableOpacity style={styles.attachBtn}>
-                  <Ionicons name="attach" size={24} color="#85959f" style={{ transform: [{ rotate: '315deg' }] }} />
-              </TouchableOpacity>
-              
-              {!text.trim() && (
-                  <TouchableOpacity style={styles.attachBtn} onPress={() => setPickerVisible(true)}>
-                      <Ionicons name="camera" size={24} color="#85959f" />
-                  </TouchableOpacity>
-              )}
+            <Ionicons name="arrow-back" size={24} color={p.ink} />
+          </Pressable>
+          <Image source={{ uri: partner?.photo }} style={s.avatar} />
+          <View style={{ flex: 1 }}>
+            <Text style={s.name}>{partner?.name || 'Your conversation'}</Text>
+            <Text style={s.sub}>Messages sync automatically</Text>
           </View>
-
-          <TouchableOpacity 
-            onPress={() => text.trim() ? sendMessage() : null} 
-            style={[styles.micBtn, { backgroundColor: colors.primary }]}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Delete conversation"
+            disabled={deletingConversation}
+            aria-busy={deletingConversation} accessibilityState={{ busy: deletingConversation, disabled: deletingConversation }}
+            onPress={deleteConversation}
+            style={s.icon}
           >
-              <Ionicons name={text.trim() ? "send" : "mic"} size={22} color="#fff" />
-          </TouchableOpacity>
+            {deletingConversation ? <ActivityIndicator color={p.accent} /> : <Ionicons name="trash-outline" size={20} color={p.muted} />}
+          </Pressable>
+        </View>
+        {!!notice && (
+          <Text accessibilityLiveRegion="polite" style={s.notice}>
+            {notice}
+          </Text>
+        )}
+        {loading ? (
+          <ActivityIndicator color={p.primary} style={{ flex: 1 }} />
+        ) : (
+          <FlatList
+            ref={list}
+            data={messages}
+            keyExtractor={(m) => m._id}
+            contentContainerStyle={{ padding: 20, gap: 12, flexGrow: 1 }}
+            onScroll={(e) => {
+              const n = e.nativeEvent
+              atBottom.current =
+                n.contentSize.height - n.contentOffset.y - n.layoutMeasurement.height < 100
+            }}
+            scrollEventThrottle={100}
+            onContentSizeChange={() => {
+              if (atBottom.current) list.current?.scrollToEnd({ animated: false })
+            }}
+            ListEmptyComponent={
+              <View style={s.empty}>
+                <Text style={s.name}>Start with a hello.</Text>
+                <Text style={s.sub}>Ask about their routines, plans or ideal home.</Text>
+              </View>
+            }
+            renderItem={({ item: m }) => {
+              if (m.type === 'system') return <Text style={s.system}>{m.text}</Text>
+              const mine = String(m.sender?._id || m.sender) === userId
+              return (
+                <View style={[s.bubble, mine ? s.mine : s.theirs]}>
+                  <Text
+                    accessibilityLabel={mine ? 'Your message' : 'Received message'}
+                    style={[s.message, mine && { color: '#fff' }]}
+                  >
+                    {m.isDeleted ? 'Message deleted' : m.type === 'text' ? m.text : ''}
+                  </Text>
+                  {!m.isDeleted && m.type === 'image' && (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Open image"
+                      onPress={() => Linking.openURL(m.mediaUrl)}
+                    >
+                      <Image source={{ uri: m.mediaUrl }} style={s.media} contentFit="contain" />
+                    </Pressable>
+                  )}
+                  {!m.isDeleted && m.type === 'video' && (
+                    <Video
+                      source={{ uri: m.mediaUrl }}
+                      style={s.media}
+                      useNativeControls
+                      resizeMode={ResizeMode.CONTAIN}
+                    />
+                  )}
+                  {!m.isDeleted && ['audio', 'file'].includes(m.type) && (
+                    <Pressable accessibilityRole="link" onPress={() => Linking.openURL(m.mediaUrl)}>
+                      <Text
+                        style={[
+                          s.message,
+                          { textDecorationLine: 'underline', color: mine ? '#fff' : p.ink },
+                        ]}
+                      >
+                        {m.text || 'Open attachment'}
+                      </Text>
+                    </Pressable>
+                  )}
+                  <View style={s.meta}>
+                    <Text style={[s.time, mine && { color: '#E9C6CE' }]}>
+                      {new Date(m.createdAt).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                      {mine
+                        ? m.pending
+                          ? m.failed
+                            ? ' · Not sent'
+                            : ' · Sending…'
+                          : m.seenBy?.length
+                            ? ' · Read'
+                            : ' · Sent'
+                        : ''}
+                    </Text>
+                    {mine && !m.isDeleted && !m.pending && (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Delete message"
+                        disabled={deletingIds.includes(m._id)}
+                        aria-busy={deletingIds.includes(m._id)} accessibilityState={{ busy: deletingIds.includes(m._id), disabled: deletingIds.includes(m._id) }}
+                        onPress={() => confirmRemove(m)}
+                        hitSlop={8}
+                      >
+                        {deletingIds.includes(m._id) ? <ActivityIndicator size="small" color="#DDE6DE" /> : <Ionicons name="trash-outline" size={14} color="#DDE6DE" />}
+                      </Pressable>
+                    )}
+                  </View>
+                  {m.failed && (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Retry message"
+                      onPress={() => persist(m)}
+                    >
+                      <Text style={s.retry}>Tap to retry</Text>
+                    </Pressable>
+                  )}
+                </View>
+              )
+            }}
+          />
+        )}
+        <View style={s.composer}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Attach a file"
+            onPress={() => setPicker(true)}
+            disabled={uploading}
+            aria-busy={uploading} accessibilityState={{ busy: uploading, disabled: uploading }}
+            style={s.icon}
+          >
+            {uploading ? (
+              <ActivityIndicator color={p.primary} />
+            ) : (
+              <Ionicons name="add-circle-outline" size={26} color={p.ink} />
+            )}
+          </Pressable>
+          <TextInput
+            accessibilityLabel="Message"
+            placeholder="Write a message…"
+            placeholderTextColor={p.muted}
+            value={text}
+            onChangeText={setText}
+            multiline
+            maxLength={5000}
+            style={s.input}
+            onKeyPress={(e: any) => {
+              if (
+                Platform.OS === 'web' &&
+                e.nativeEvent.key === 'Enter' &&
+                !e.shiftKey &&
+                !e.nativeEvent.shiftKey
+              ) {
+                e.preventDefault()
+                send()
+              }
+            }}
+          />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Send message"
+            disabled={!text.trim() || sendingCount > 0}
+            aria-busy={sendingCount > 0} accessibilityState={{ busy: sendingCount > 0, disabled: !text.trim() || sendingCount > 0 }}
+            onPress={() => send()}
+            style={[s.send, !text.trim() && !sendingCount && { opacity: 0.45 }]}
+          >
+            {sendingCount > 0 ? <ActivityIndicator color="#fff" /> : <Ionicons name="arrow-up" size={23} color="#fff" />}
+          </Pressable>
+        </View>
+        <MediaPicker
+          visible={picker}
+          onClose={() => setPicker(false)}
+          onPickImage={(asset) => attach(asset, 'image')}
+          onPickVideo={(asset) => attach(asset, 'video')}
+          onPickDocument={(asset) => attach(asset, 'file')}
+        />
       </View>
-
-      <MediaPicker 
-          visible={pickerVisible}
-          onClose={() => setPickerVisible(false)}
-          onPickImage={(asset: any) => uploadMedia(asset, 'image')}
-          onPickVideo={(asset: any) => uploadMedia(asset, 'video')}
-          onPickDocument={(doc: any) => uploadMedia(doc, 'file')}
-      />
-
-      {uploading && (
-          <View style={styles.loadingOverlay}>
-              <ActivityIndicator size="large" color="#3b82f6" />
-          </View>
-      )}
     </KeyboardAvoidingView>
-    </View>
   )
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  customHeader: {
-    height: 60,
+const s = StyleSheet.create({
+  page: { flex: 1, backgroundColor: p.canvas },
+  frame: {
+    flex: 1,
+    width: '100%',
+    maxWidth: 940,
+    alignSelf: 'center',
+    backgroundColor: p.canvas,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: p.line,
+  },
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 8,
+    gap: 12,
+    padding: 16,
+    backgroundColor: p.surface,
     borderBottomWidth: 1,
-    zIndex: 100,
-    elevation: 10,
+    borderColor: p.line,
   },
-  headerLeftContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  backBtn: {
-    padding: 8,
-  },
-  headerPartner: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      flex: 1,
-      marginLeft: 4,
-  },
-  headerAvatar: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: '#1e293b',
-      borderWidth: 1.5,
-      borderColor: 'rgba(255,255,255,0.1)',
-  },
-  headerName: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '900',
-    letterSpacing: 0.2,
-  },
-  headerSub: {
-    color: '#94a3b8',
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  headerActions: {
-      flexDirection: 'row',
-      alignItems: 'center',
-  },
-  headerActionBtn: {
-      padding: 10,
-      marginLeft: 8,
-  },
-  bubble: {
-      maxWidth: '85%',
-      paddingHorizontal: 16,
-      paddingVertical: 10,
-      marginVertical: 4,
-      borderRadius: 20,
-      overflow: 'hidden',
-  },
-  myBubble: {
-    alignSelf: 'flex-end',
-    borderBottomRightRadius: 4,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderBottomLeftRadius: 24,
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-  },
-  partnerBubble: {
+  icon: { padding: 7 },
+  avatar: { width: 44, height: 44, borderRadius: 17, backgroundColor: p.sage },
+  name: { color: p.ink, fontFamily: displayFont, fontSize: 17, fontWeight: '700' },
+  sub: { color: p.muted, fontFamily: displayFont, fontSize: 12, marginTop: 4 },
+  notice: { padding: 14, backgroundColor: p.primarySoft, color: p.error, fontFamily: displayFont, fontSize: 13 },
+  empty: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10 },
+  system: { alignSelf: 'center', fontFamily: displayFont, fontSize: 12, color: p.muted, padding: 12 },
+  bubble: { maxWidth: '85%', padding: 14, borderRadius: 18, minWidth: 110 },
+  mine: { alignSelf: 'flex-end', backgroundColor: p.dark, borderBottomRightRadius: 4 },
+  theirs: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(30, 41, 59, 0.95)',
-    borderBottomLeftRadius: 4,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderBottomRightRadius: 24,
+    backgroundColor: p.surface,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    borderColor: p.line,
+    borderBottomLeftRadius: 4,
   },
-  mediaImage: {
-      width: 260,
-      height: 200,
-      borderRadius: 12,
-      marginBottom: 6
+  message: { color: p.ink, fontFamily: displayFont, fontSize: 15, lineHeight: 23 },
+  media: { width: 240, height: 180, borderRadius: 10 },
+  meta: {
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginTop: 8,
   },
-  mediaVideo: {
-      width: 260,
-      height: 200,
-      borderRadius: 12,
-      marginBottom: 6,
-      backgroundColor: '#000'
-  },
-  metaRow: {
-      flexDirection: 'row',
-      justifyContent: 'flex-end',
-      alignItems: 'center',
-      marginTop: 4,
-  },
-  time: {
-      fontSize: 10,
-      color: '#85959f'
-  },
-  bottomBar: {
-      flexDirection: 'row',
-      alignItems: 'flex-end',
-      paddingHorizontal: 12,
-      paddingBottom: Platform.OS === 'ios' ? 30 : 12,
-      paddingTop: 8,
-  },
-  inputContainer: {
-    flex: 1,
+  time: { fontFamily: displayFont, fontSize: 10, color: p.muted },
+  retry: { color: '#FFD2BD', textDecorationLine: 'underline', paddingTop: 10, fontFamily: displayFont, fontSize: 13 },
+  composer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 30,
-    paddingHorizontal: 14,
-    marginRight: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  emojiBtn: {
-      padding: 6,
-  },
-  attachBtn: {
-      padding: 6,
+    gap: 10,
+    backgroundColor: p.surface,
+    padding: 14,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 14,
+    borderTopWidth: 1,
+    borderColor: p.line,
   },
   input: {
-      flex: 1,
-      color: '#fff',
-      fontSize: 16,
-      paddingHorizontal: 8,
-      paddingVertical: 12,
-      maxHeight: 120,
+    flex: 1,
+    backgroundColor: p.canvas,
+    borderRadius: 14,
+    padding: 13,
+    color: p.ink,
+    fontFamily: displayFont, fontSize: 15,
+    maxHeight: 110,
   },
-  micBtn: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    justifyContent: 'center',
+  send: {
+    width: 44,
+    height: 44,
+    borderRadius: 15,
+    backgroundColor: p.primary,
     alignItems: 'center',
-    backgroundColor: '#ce0000',
-    elevation: 10,
-    shadowColor: '#ce0000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
+    justifyContent: 'center',
   },
-  loadingOverlay: {
-      ...StyleSheet.absoluteFillObject,
-      backgroundColor: 'rgba(0,0,0,0.7)',
-      alignItems: 'center', 
-      justifyContent: 'center',
-      zIndex: 100,
-  },
-  systemContainer: {
-      alignSelf: 'center',
-      backgroundColor: 'rgba(99, 102, 241, 0.1)',
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderRadius: 12,
-      marginVertical: 16,
-      borderWidth: 1,
-      borderColor: 'rgba(99, 102, 241, 0.2)',
-  },
-  systemText: {
-      fontSize: 12,
-      color: '#a5b4fc',
-      fontWeight: '600',
-      textAlign: 'center',
-  }
 })

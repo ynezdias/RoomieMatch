@@ -7,9 +7,14 @@
     "dev": "node --watch server.js",
     "seed:demo": "node scripts/seedDemoProfiles.js",
     "verify:demo": "node scripts/verifyDemoProfiles.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "verify:app": "node scripts/verifyApp.js",
+    "check:secrets": "node scripts/checkSecrets.js",
+    "test": "node --test tests/*.test.js",
+    "configure:credentials": "node scripts/configureCredentials.js"
   },
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -22,12 +27,9 @@
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
     "mongodb": "^7.0.0",
-    "mongodb-memory-server": "^11.0.1",
     "mongoose": "^9.1.5",
     "multer": "^2.0.2",
-    "multer-storage-cloudinary": "^4.0.0",
     "socket.io": "^4.8.3"
   },
-  "devDependencies": {
-  }
+  "devDependencies": {}
 }

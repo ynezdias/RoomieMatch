@@ -7,7 +7,12 @@ const router = express.Router()
 
 // REGISTER
 router.post('/register', async (req, res) => {
-  const { name, email, password } = req.body
+  const name = typeof req.body.name === 'string' ? req.body.name.trim() : ''
+  const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : ''
+  const password = req.body.password
+  if (!name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || typeof password !== 'string' || password.length < 8) {
+    return res.status(400).json({ msg: 'Enter a name, valid email, and password of at least 8 characters.' })
+  }
 
   const existing = await User.findOne({ email })
   if (existing) return res.status(400).json({ msg: 'User exists' })
@@ -26,12 +31,14 @@ router.post('/register', async (req, res) => {
     { expiresIn: '7d' }
   )
 
-  res.json({ token, user: { id: user._id, email: user.email, name: user.name } })
+  res.json({ token, user: { id: user._id, _id: user._id, email: user.email, name: user.name, isDemo: user.isDemo } })
 })
 
 // LOGIN
 router.post('/login', async (req, res) => {
-  const { email, password } = req.body
+  const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : ''
+  const password = req.body.password
+  if (!email || typeof password !== 'string' || !password) return res.status(400).json({ msg: 'Email and password are required.' })
 
   const user = await User.findOne({ email })
   if (!user) return res.status(400).json({ msg: 'Invalid credentials' })
@@ -45,7 +52,7 @@ router.post('/login', async (req, res) => {
     { expiresIn: '7d' }
   )
 
-  res.json({ token, user: { id: user._id, email: user.email, name: user.name } })
+  res.json({ token, user: { id: user._id, _id: user._id, email: user.email, name: user.name, isDemo: user.isDemo } })
 })
 
 module.exports = router

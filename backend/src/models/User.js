@@ -6,6 +6,8 @@ module.exports = mongoose.model(
     name: String,
     email: { type: String, unique: true },
     password: String,
+    isDemo: { type: Boolean, default: false },
+    seedBatch: String,
   })
 )
 

@@ -1,3 +1,4 @@
+import { displayFont } from '@/constants/design'
 import React, { useState, useRef } from 'react'
 import { View, Text, FlatList, StyleSheet, Platform, TouchableOpacity, useWindowDimensions, ViewToken } from 'react-native'
 import { useRouter } from 'expo-router'
@@ -13,14 +14,14 @@ const slides = [
     },
     {
         id: '2',
-        title: 'Secure & Real-time Chat',
-        description: 'Chat instantly with potential roommates. Send photos, videos, and voice notes.',
+        title: 'Start a Conversation',
+        description: 'Get to know potential roommates. Share messages, photos and files.',
         icon: 'chatbubbles'
     },
     {
         id: '3',
-        title: 'Verified Profiles',
-        description: 'Safety first. We verify profiles to ensure you are talking to real people.',
+        title: 'Make It Your Own',
+        description: 'Share your preferences and routines to find someone who feels like a good fit.',
         icon: 'shield-checkmark'
     }
 ] as const
@@ -52,7 +53,7 @@ export default function OnboardingScreen() {
     const renderItem = ({ item }: { item: (typeof slides)[number] }) => (
         <View style={[styles.slide, { width }]}>
             <View style={styles.iconContainer}>
-                <Ionicons name={item.icon} size={100} color="#ce0000" />
+                <Ionicons name={item.icon} size={100} color="#F27886" />
             </View>
             <Text style={styles.title}>{item.title}</Text>
             <Text style={styles.description}>{item.description}</Text>
@@ -62,7 +63,7 @@ export default function OnboardingScreen() {
     return (
         <View style={styles.container}>
              <LinearGradient
-                colors={['#020617', '#1e293b']}
+                colors={['#100E11', '#2C2026']}
                 style={StyleSheet.absoluteFill}
             />
             
@@ -114,7 +115,7 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#020617',
+        backgroundColor: '#100E11',
     },
     slide: {
         justifyContent: 'center',
@@ -129,22 +130,22 @@ const styles = StyleSheet.create({
     iconContainer: {
         width: 200,
         height: 200,
-        backgroundColor: 'rgba(206, 0, 0, 0.1)',
+        backgroundColor: '#2C2026',
         borderRadius: 100,
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 40,
     },
     title: {
-        fontSize: 28,
+        fontFamily: displayFont, fontSize: 28,
         fontWeight: 'bold',
-        color: '#fff',
+        color: '#F5EEEE',
         textAlign: 'center',
         marginBottom: 20,
     },
     description: {
-        fontSize: 16,
-        color: '#ccc',
+        fontFamily: displayFont, fontSize: 16,
+        color: '#AEA6AB',
         textAlign: 'center',
         lineHeight: 24,
     },
@@ -165,11 +166,11 @@ const styles = StyleSheet.create({
         marginRight: 10,
     },
     activeDot: {
-        backgroundColor: '#ce0000',
+        backgroundColor: '#C93B4F',
         width: 20,
     },
     button: {
-        backgroundColor: '#ce0000',
+        backgroundColor: '#C93B4F',
         paddingVertical: 12,
         paddingHorizontal: 24,
         borderRadius: 30,
@@ -178,7 +179,7 @@ const styles = StyleSheet.create({
     },
     buttonText: {
         color: '#fff',
-        fontSize: 16,
+        fontFamily: displayFont, fontSize: 16,
         fontWeight: 'bold',
         marginRight: 8,
     }

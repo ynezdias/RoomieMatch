@@ -1,7 +1,9 @@
 const Swipe = require('../models/Swipe');
-const Match = require('../models/Match');
 const Profile = require('../models/Profile');
 const Message = require('../models/Message');
+const mongoose = require('mongoose');
+const User = require('../models/User');
+const getConversation = require('../services/conversations');
 // THIS IS FOR STUDY 
 /**
  * GET SWIPE SUGGESTIONS
@@ -39,9 +41,10 @@ exports.handleSwipe = async (req, res) => {
     const { targetUserId, direction } = req.body;
     const currentUserId = req.user.id;
 
-    if (!targetUserId || !direction) {
-      return res.status(400).json({ message: 'Missing targetUserId or direction' });
+    if (!mongoose.isObjectIdOrHexString(targetUserId) || !['left', 'right'].includes(direction) || targetUserId === currentUserId) {
+      return res.status(400).json({ message: 'Invalid target user or swipe direction' });
     }
+    if (!await User.exists({ _id: targetUserId })) return res.status(404).json({ message: 'User not found' });
 
     // 1. Save or update the swipe
     let swipe = await Swipe.findOne({
@@ -77,15 +80,9 @@ exports.handleSwipe = async (req, res) => {
         console.log('✨ IT IS A MATCH!');
 
         // Check if match already exists
-        matchDoc = await Match.findOne({
-          users: { $all: [currentUserId, targetUserId] },
-        });
-
-        if (!matchDoc) {
-          matchDoc = new Match({
-            users: [currentUserId, targetUserId],
-          });
-          await matchDoc.save();
+        const conversation = await getConversation(currentUserId, targetUserId);
+        matchDoc = conversation.match;
+        if (conversation.created) {
 
           // 🔥 CREATE SYSTEM MESSAGE FOR MATCH
           const systemMsg = await Message.create({

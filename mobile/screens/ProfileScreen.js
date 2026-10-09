@@ -1,4 +1,4 @@
-import { View, Text, TextInput, Button } from 'react-native';
+import { View, Text, TextInput, Button, StyleSheet } from 'react-native';
 import { useState } from 'react';
 import API from '../services/api';
 
@@ -8,7 +8,7 @@ export default function ProfileScreen() {
   const [city, setCity] = useState('');
 
   const saveProfile = async () => {
-    await API.post('/profile', {
+    await API.put('/profile', {
       aboutMe,
       university,
       city
@@ -17,7 +17,7 @@ export default function ProfileScreen() {
   };
 
   return (
-    <View>
+    <View style={styles.container}>
       <Text>Create Profile</Text>
       <TextInput placeholder="About Me" onChangeText={setAboutMe} />
       <TextInput placeholder="University" onChangeText={setUniversity} />

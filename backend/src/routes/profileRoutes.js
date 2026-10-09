@@ -6,12 +6,17 @@ const auth = require('../middleware/authMiddleware')
 const cloudinary = require('../config/cloudinary')
 
 router.put('/', auth, async (req, res) => {
-  console.log('🔥 PROFILE ROUTE HIT')
 
   try {
     const { photo } = req.body;
+    if (photo !== undefined && typeof photo !== 'string') {
+      return res.status(400).json({ msg: 'Please select a valid profile photo.', code: 'PROFILE_VALIDATION_ERROR', fieldErrors: { photo: 'Please select a valid profile photo.' } });
+    }
     const allowedFields = ['aboutMe', 'university', 'city', 'state', 'country', 'budget', 'smoking', 'pets', 'furniture', 'lookingFor'];
     const otherData = Object.fromEntries(allowedFields.filter(key => req.body[key] !== undefined).map(key => [key, req.body[key]]));
+    for (const field of ['aboutMe', 'city', 'university', 'state', 'country']) {
+      if (typeof otherData[field] === 'string') otherData[field] = otherData[field].trim();
+    }
     let profileData = { ...otherData, userId: req.user.id };
 
     // Upload photo if present and is a base64 string
@@ -25,7 +30,7 @@ router.put('/', auth, async (req, res) => {
         console.log('✅ Cloudinary URL:', uploadRes.secure_url)
       } catch (uploadErr) {
         console.error('❌ Cloudinary Upload Error:', uploadErr.message)
-        return res.status(502).json({ message: 'Photo upload failed. Please try again.' })
+        return res.status(502).json({ msg: 'Photo upload failed. Please try again.', message: 'Photo upload failed. Please try again.', code: 'PHOTO_UPLOAD_FAILED' })
       }
     } else if (photo) {
       // If it's already a URL, keep it
@@ -45,8 +50,15 @@ router.put('/', auth, async (req, res) => {
     console.log('💾 PROFILE SAVED/UPDATED:', profile._id, 'for User:', req.user.id)
     res.json(profile)
   } catch (err) {
-    console.error('❌ PROFILE UPDATE ERROR:', err.message)
-    res.status(err.name === 'ValidationError' ? 400 : 500).json({ message: err.name === 'ValidationError' ? err.message : 'Unable to save profile.' })
+    if (err.name === 'ValidationError' || err.name === 'CastError') {
+      const labels = { city: 'Please enter your city.', university: 'Please enter your university or workplace.', aboutMe: 'About me must be 1,000 characters or fewer.', budget: 'Choose a monthly budget between $0 and $5,000.', lookingFor: 'Choose a valid housing preference.' };
+      const paths = err.errors ? Object.keys(err.errors) : [err.path];
+      const fieldErrors = Object.fromEntries(paths.map(field => [field, labels[field] || 'Please check this profile field.']));
+      const msg = Object.values(fieldErrors).join(' ');
+      return res.status(400).json({ msg, message: msg, code: 'PROFILE_VALIDATION_ERROR', fieldErrors });
+    }
+    console.error('Profile update failed:', err.name);
+    res.status(500).json({ msg: 'Unable to save your profile. Please try again.', message: 'Unable to save your profile. Please try again.', code: 'PROFILE_SAVE_FAILED' });
   }
 })
 

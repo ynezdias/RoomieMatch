@@ -1,196 +1,127 @@
-import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, ActivityIndicator, SafeAreaView } from 'react-native'
-import { useEffect, useState, useCallback } from 'react'
+import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator } from 'react-native'
+import { Image } from 'expo-image'
+import { useState, useCallback } from 'react'
 import { useRouter, useFocusEffect } from 'expo-router'
 import api from '@/services/api'
-import { Ionicons } from '@expo/vector-icons'
-import { useTheme } from '@/src/context/ThemeContext'
-import { LinearGradient } from 'expo-linear-gradient'
-
+import { EmptyState, AsyncIconButton } from '@/components/app-ui'
+import { palette as p, displayFont } from '@/constants/design'
 export default function MatchesScreen() {
+  const router = useRouter()
   const [matches, setMatches] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const router = useRouter()
-  const { colors } = useTheme()
-
-  const fetchMatches = async () => {
+  const [error, setError] = useState('')
+  const load = useCallback(async (initial = false) => {
+    if (initial) setLoading(true)
     try {
-      setLoading(true)
-      const res = await api.get('/chat/matches')
-      setMatches(res.data)
-    } catch (err) {
-      console.log('❌ FETCH MATCHES ERROR', err)
+      const { data } = await api.get('/chat/matches')
+      setMatches(data)
+      setError('')
+    } catch {
+      setError('Could not load conversations. Please try again.')
     } finally {
       setLoading(false)
     }
-  }
-
-  const togglePin = async (matchId: string) => {
-      try {
-          await api.put(`/chat/pin/${matchId}`)
-          fetchMatches()
-      } catch (e) {
-          console.log(e)
-      }
-  }
-
+  }, [])
   useFocusEffect(
     useCallback(() => {
-      fetchMatches()
-    }, [])
+      load(true)
+      const timer = setInterval(() => load(), 5000)
+      return () => clearInterval(timer)
+    }, [load]),
   )
-
-  if (loading && !matches.length) {
-    return (
-      <View style={styles.center}>
-        <LinearGradient
-          colors={['#020617', '#0f172a']}
-          style={StyleSheet.absoluteFill}
-        />
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    )
+  const pin = async (id: string) => {
+    try {
+      await api.put('/chat/pin/' + id)
+      await load()
+    } catch {
+      setError('Could not update your pinned conversations.')
+    }
   }
-
   return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={['#020617', '#0f172a', '#1e293b']}
-        style={StyleSheet.absoluteFill}
-      />
-      
-      <SafeAreaView style={{ flex: 1 }}>
-        <View style={{ paddingHorizontal: 16, flex: 1 }}>
-          <Text style={[styles.title, { color: colors.text }]}>Messages</Text>
-
+    <View style={s.page}>
+      <View style={s.frame}>
+        <Text style={s.eyebrow}>MAKE A CONNECTION</Text>
+        <Text style={s.title}>A hello goes a long way.</Text>
+        <Text style={s.subtitle}>Your conversations, all in one place.</Text>
+        {!!error && <Text style={s.error}>{error}</Text>}
+        {loading ? (
+          <ActivityIndicator color={p.primary} style={{ margin: 40 }} />
+        ) : (
           <FlatList
             data={matches}
-            keyExtractor={(item) => item._id}
-            contentContainerStyle={{ paddingBottom: 20 }}
+            keyExtractor={(m) => m._id}
+            onRefresh={() => load(true)}
             refreshing={loading}
-            onRefresh={fetchMatches}
-            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 30, gap: 12 }}
             ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Ionicons name="chatbubble-ellipses-outline" size={64} color="#334155" />
-                <Text style={[styles.emptyText, { color: colors.text }]}>No messages yet</Text>
-                <Text style={styles.emptySub}>Connect with people to start chatting!</Text>
-              </View>
+              <EmptyState
+                title="Your next hello awaits"
+                description="Find someone in Explore and start a conversation."
+                action="Explore profiles"
+                onAction={() => router.push('/(protected)/(tabs)/explore')}
+              />
             }
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                activeOpacity={0.7}
-                style={[
-                    styles.card, 
-                    { backgroundColor: 'rgba(30, 41, 59, 0.5)', borderColor: '#334155' },
-                    item.isPinned && { borderColor: colors.primary, borderWidth: 1.5, backgroundColor: 'rgba(206, 0, 0, 0.05)' }
-                ]}
-                onPress={() => router.push({
-                  pathname: '/chat',
-                  params: { matchId: item._id }
-                })}
-                onLongPress={() => togglePin(item._id)}
-              >
-                <View style={styles.avatarWrapper}>
-                    <Image
-                    source={{ uri: item.otherUser?.photo || `https://ui-avatars.com/api/?name=${item.otherUser?.name}` }}
-                    style={styles.avatar}
-                    />
-                    {item.otherUser?.isOnline && <View style={styles.onlineStatus} />}
-                </View>
-
-                <View style={styles.info}>
-                  <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
-                      <Text style={[styles.name, { color: colors.text }]}>{item.otherUser?.name}</Text>
-                      {item.isPinned && <Ionicons name="pin" size={14} color={colors.primary} />}
+            renderItem={({ item: m }) => (
+              <View style={s.card}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={'Chat with ' + m.otherUser.name}
+                  onPress={() =>
+                    router.push({ pathname: '/(protected)/chat', params: { matchId: m._id } })
+                  }
+                  style={s.person}
+                >
+                  <Image source={{ uri: m.otherUser.photo }} style={s.avatar} />
+                  <View style={{ flex: 1 }}>
+                    <View style={s.row}>
+                      <Text style={s.name}>{m.otherUser.name}</Text>
+                      <Text style={s.time}>
+                        {new Date(m.lastMessageTime).toLocaleDateString([], {
+                          month: 'short',
+                          day: 'numeric',
+                        })}
+                      </Text>
+                    </View>
+                    <Text style={s.preview} numberOfLines={1}>
+                      {m.lastMessage}
+                    </Text>
                   </View>
-                  <Text style={styles.lastMsg} numberOfLines={1}>
-                    {item.lastMessage || 'Send a message...'}
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color="#475569" />
-              </TouchableOpacity>
+                </Pressable>
+                <AsyncIconButton title={m.isPinned ? 'Unpin chat' : 'Pin chat'} onPress={() => pin(m._id)} icon={m.isPinned ? 'bookmark' : 'bookmark-outline'} color={m.isPinned ? p.accent : p.muted} />
+              </View>
             )}
           />
-        </View>
-      </SafeAreaView>
+        )}
+      </View>
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+const s = StyleSheet.create({
+  page: { flex: 1, backgroundColor: p.canvas },
+  frame: { width: '100%', maxWidth: 900, alignSelf: 'center', padding: 24, flex: 1 },
+  eyebrow: {
+    color: p.accent,
+    letterSpacing: 2,
+    fontWeight: '700',
+    fontFamily: displayFont, fontSize: 11,
+    marginBottom: 12,
   },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: '#fff',
-    marginTop: 20,
-    marginBottom: 20,
-    letterSpacing: -0.5,
-  },
+  title: { fontFamily: displayFont, fontWeight: '700', color: p.ink,  fontSize: 36 },
+  subtitle: { color: p.muted, fontFamily: displayFont, fontSize: 15, marginVertical: 18 },
+  error: { color: p.error, padding: 12 },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 24,
-    marginBottom: 16,
+    backgroundColor: p.surface,
     borderWidth: 1,
+    borderColor: p.line,
+    borderRadius: 20,
+    padding: 12,
   },
-  avatarWrapper: {
-    position: 'relative',
-  },
-  avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 22,
-    backgroundColor: '#1e293b',
-  },
-  onlineStatus: {
-    position: 'absolute',
-    bottom: -2,
-    right: -2,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#22c55e',
-    borderWidth: 3,
-    borderColor: '#0f172a',
-  },
-  info: {
-    flex: 1,
-    marginLeft: 16,
-  },
-  name: {
-    fontSize: 18,
-    fontWeight: '800',
-    marginBottom: 4,
-  },
-  lastMsg: {
-    fontSize: 15,
-    color: '#94a3b8',
-    fontWeight: '500',
-  },
-  emptyContainer: {
-    marginTop: 120,
-    alignItems: 'center',
-    paddingHorizontal: 40,
-  },
-  emptyText: {
-    fontSize: 22,
-    fontWeight: '800',
-    marginTop: 20,
-  },
-  emptySub: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#64748b',
-    textAlign: 'center',
-    lineHeight: 22,
-  },
+  person: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 16, padding: 6 },
+  avatar: { width: 60, height: 60, borderRadius: 20, backgroundColor: p.sage },
+  row: { flexDirection: 'row', gap: 10, alignItems: 'center', justifyContent: 'space-between' },
+  name: { flex: 1, fontFamily: displayFont, fontSize: 16, fontWeight: '700', color: p.ink },
+  time: { color: p.muted, fontFamily: displayFont, fontSize: 10 },
+  preview: { color: p.muted, fontFamily: displayFont, fontSize: 14, marginTop: 8 },
 })

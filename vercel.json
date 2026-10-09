@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "npm --prefix backend ci --omit=dev && npm --prefix mobile ci",
+  "buildCommand": "npm --prefix mobile run build:web",
+  "outputDirectory": "mobile/dist",
+  "functions": { "api/index.js": { "maxDuration": 30, "includeFiles": "backend/src/**" } },
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/index.js" },
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/index.html" }
+  ]
+}

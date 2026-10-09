@@ -5,6 +5,8 @@ const Profile = require('../models/Profile')
 const auth = require('../middleware/authMiddleware')
 const mongoose = require('mongoose')
 const User = require('../models/User')
+const getConversation = require('../services/conversations')
+const ensureIndexes = require('../services/ensureIndexes')
 
 const requireMembership = async (req, res, next) => {
   if (!mongoose.isObjectIdOrHexString(req.params.matchId)) return res.status(400).json({ error: 'Invalid chat ID' });
@@ -41,7 +43,7 @@ router.get('/matches', auth, async (req, res) => {
             email: otherUser.email,
             photo: profile?.photo || `https://ui-avatars.com/api/?name=${otherUser.name}`,
           },
-          lastMessage: lastMessage ? (lastMessage.type === 'text' ? lastMessage.text : `Sent a ${lastMessage.type}`) : 'Say hi!',
+          lastMessage: lastMessage ? (lastMessage.isDeleted ? 'Message deleted' : ['text', 'system'].includes(lastMessage.type) ? lastMessage.text : `Sent a ${lastMessage.type}`) : 'Say hi!',
           lastMessageTime: lastMessage?.createdAt || m.createdAt,
           isPinned
         }
@@ -85,6 +87,44 @@ router.put('/pin/:matchId', auth, requireMembership, async (req, res) => {
   }
 });
 
+router.post('/:matchId/messages', auth, requireMembership, async (req, res) => {
+  const { clientId, mediaUrl, type = 'text' } = req.body;
+  const text = typeof req.body.text === 'string' ? req.body.text.trim() : '';
+  if (!['text', 'image', 'video', 'audio', 'file'].includes(type) || text.length > 5000 ||
+      (type === 'text' ? !text : typeof mediaUrl !== 'string' || !mediaUrl.startsWith('https://res.cloudinary.com/')) ||
+      typeof clientId !== 'string' || !/^[a-zA-Z0-9_-]{8,100}$/.test(clientId)) {
+    return res.status(400).json({ msg: 'Invalid message. Text must be between 1 and 5,000 characters.' });
+  }
+  const duplicate = await Message.findOne({ sender: req.user.id, clientId });
+  if (duplicate) {
+    if (String(duplicate.matchId) !== req.params.matchId) return res.status(409).json({ msg: 'Message ID already used.' });
+    return res.json(duplicate);
+  }
+  let message;
+  await ensureIndexes(Message);
+  try {
+    message = await Message.create({ matchId: req.params.matchId, sender: req.user.id, text, type, mediaUrl, clientId });
+  } catch (err) {
+    if (err.code !== 11000) throw err;
+    message = await Message.findOne({ sender: req.user.id, clientId });
+    if (!message || String(message.matchId) !== req.params.matchId) return res.status(409).json({ msg: 'Message ID already used.' });
+  }
+  global.io?.to(req.params.matchId).emit('newMessage', message);
+  res.json(message);
+});
+
+router.put('/:matchId/read', auth, requireMembership, async (req, res) => {
+  await Message.updateMany({ matchId: req.params.matchId, sender: { $ne: req.user.id }, seenBy: { $ne: req.user.id } }, { $addToSet: { seenBy: req.user.id } });
+  res.json({ ok: true });
+});
+
+router.delete('/:matchId/messages/:messageId', auth, requireMembership, async (req, res) => {
+  if (!mongoose.isObjectIdOrHexString(req.params.messageId)) return res.status(400).json({ msg: 'Invalid message ID' });
+  const message = await Message.findOneAndUpdate({ _id: req.params.messageId, matchId: req.params.matchId, sender: req.user.id }, { isDeleted: true }, { new: true });
+  if (!message) return res.status(403).json({ msg: 'You can only delete your own messages.' });
+  res.json(message);
+});
+
 router.get('/:matchId', auth, requireMembership, async (req, res) => {
   try {
     const messages = await Message.find({
@@ -113,17 +153,10 @@ router.post('/get-or-create/:targetUserId', auth, async (req, res) => {
     if (!await User.exists({ _id: targetUserId })) return res.status(404).json({ error: 'User not found' });
 
     // 1. Check if match already exists
-    let match = await Match.findOne({
-      users: { $all: [currentUserId, targetUserId] },
-    })
+    const { match, created } = await getConversation(currentUserId, targetUserId)
 
     // 2. If not, create it
-    if (!match) {
-      match = new Match({
-        users: [currentUserId, targetUserId],
-        pinnedBy: []
-      })
-      await match.save()
+    if (created) {
 
       // Create a system message
       await Message.create({
@@ -141,7 +174,7 @@ router.post('/get-or-create/:targetUserId', auth, async (req, res) => {
   }
 })
 
-router.delete('/:matchId', auth, async (req, res) => {
+router.delete('/:matchId', auth, requireMembership, async (req, res) => {
   try {
     const { matchId } = req.params
     const userId = req.user.id

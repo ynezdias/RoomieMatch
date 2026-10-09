@@ -1,12 +1,15 @@
 import {
   View,
   Text,
+  ScrollView,
   StyleSheet,
-  Dimensions,
+  useWindowDimensions,
   Modal,
-  Pressable,
   ActivityIndicator,
 } from 'react-native'
+import { useEffect, useRef, useState } from 'react'
+import { Image } from 'expo-image'
+import { useRouter } from 'expo-router'
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -14,344 +17,258 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
-import { useEffect, useState } from 'react'
-import { useRouter } from 'expo-router'
-import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import api from '@/services/api'
-import { connectSocket } from '@/src/sockets'
-import { Image } from 'expo-image'
-
-const SCREEN_WIDTH = Dimensions.get('window').width
-const SCREEN_HEIGHT = Dimensions.get('window').height
-
+import { Button, EmptyState } from '@/components/app-ui'
+import { palette as p, displayFont } from '@/constants/design'
 export default function SwipeScreen() {
+  const { width, height } = useWindowDimensions()
   const router = useRouter()
   const [profiles, setProfiles] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [matchVisible, setMatchVisible] = useState(false)
-  const [activeMatchId, setActiveMatchId] = useState<string | null>(null)
-
-  const translateX = useSharedValue(0)
-  const matchScale = useSharedValue(0.5)
-  const matchOpacity = useSharedValue(0)
-
-  /* ===================== FETCH PROFILES ===================== */
-
-  const fetchProfiles = async () => {
+  const [error, setError] = useState('')
+  const [matchId, setMatchId] = useState('')
+  const [busy, setBusy] = useState(false)
+  const pending = useRef(false)
+  const x = useSharedValue(0)
+  const load = async () => {
+    setLoading(true)
+    setError('')
     try {
-      const res = await api.get('/swipe/suggestions')
-      setProfiles(res.data || [])
-    } catch (err) {
-      console.log('❌ FETCH PROFILES ERROR', err)
+      const { data } = await api.get('/swipe/suggestions')
+      setProfiles(data || [])
+    } catch {
+      setError('Could not load profiles. Please try again.')
     } finally {
       setLoading(false)
     }
   }
-
   useEffect(() => {
-    fetchProfiles()
+    load()
   }, [])
-
-  /* ===================== MATCH ANIMATION ===================== */
-
-  const triggerMatch = (matchId: string) => {
-    setActiveMatchId(matchId)
-    setMatchVisible(true)
-    matchScale.value = withSpring(1)
-    matchOpacity.value = withSpring(1)
-  }
-
-  /* ===================== SWIPE HANDLER ===================== */
-
-  const handleSwipe = async (
-    direction: 'left' | 'right',
-    targetId: string
-  ) => {
+  const swipe = async (direction: 'left' | 'right') => {
+    if (pending.current || !profiles.length) return
+    pending.current = true
+    setBusy(true)
+    setError('')
     try {
-      const res = await api.post('/swipe', {
-        targetUserId: targetId,
-        direction,
-      })
-
-      if (res.data?.match) {
-        triggerMatch(res.data.matchId)
-      }
-    } catch (err) {
-      console.log('❌ SWIPE ERROR', err)
+      const { data } = await api.post('/swipe', { direction, targetUserId: profiles[0].userId._id })
+      if (data.match) setMatchId(data.matchId)
+      setProfiles((old) => old.slice(1))
+    } catch {
+      setError('Your choice was not saved. Please try again.')
+    } finally {
+      pending.current = false
+      setBusy(false)
+      x.value = withSpring(0)
     }
-
-    setProfiles((prev) => prev.slice(1))
-    translateX.value = 0
   }
-
-  /* ===================== GESTURE ===================== */
-
-  const panGesture = Gesture.Pan()
+  const gesture = Gesture.Pan()
+    .activeOffsetX([-20, 20])
     .onUpdate((e) => {
-      translateX.value = e.translationX
+      x.value = e.translationX
     })
     .onEnd(() => {
-      if (!profiles.length) return
-
-      if (translateX.value > 120) {
-        runOnJS(handleSwipe)('right', profiles[0]._id)
-      } else if (translateX.value < -120) {
-        runOnJS(handleSwipe)('left', profiles[0]._id)
-      } else {
-        translateX.value = withSpring(0)
-      }
+      if (x.value > 120) runOnJS(swipe)('right')
+      else if (x.value < -120) runOnJS(swipe)('left')
+      else x.value = withSpring(0)
     })
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: translateX.value },
-      { rotate: `${translateX.value / 20}deg` }
-    ],
+  const animated = useAnimatedStyle(() => ({
+    transform: [{ translateX: x.value }, { rotate: x.value / 30 + 'deg' }],
   }))
-
-  const matchStyle = useAnimatedStyle(() => ({
-    opacity: matchOpacity.value,
-    transform: [{ scale: matchScale.value }],
-  }))
-
-  /* ===================== STATES ===================== */
-
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#ce0000" />
-        <Text style={styles.loadingText}>Finding matches...</Text>
-      </View>
-    )
-  }
-
-  if (!profiles.length) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.empty}>No more profiles</Text>
-      </View>
-    )
-  }
-
-  /* ===================== UI ===================== */
-
+  const profile = profiles[0]
+  const desktop = width >= 900
   return (
-    <View style={styles.container}>
-      {profiles
-        .slice(0, 2)
-        .reverse()
-        .map((p, i) => (
-          <GestureDetector
-            key={p._id}
-            gesture={i === 1 ? panGesture : Gesture.Tap()}
-          >
-            <Animated.View
-              style={[
-                styles.card,
-                i === 1 && animatedStyle,
-                { zIndex: i === 1 ? 10 : 1, transform: i === 0 ? [{ scale: 0.95 }] : [] },
-              ]}
-            >
-              <Image 
-                source={{ uri: p.photo || p.profilePicture || `https://ui-avatars.com/api/?name=${p.userId?.name}` }}
-                style={StyleSheet.absoluteFillObject}
-                contentFit="cover"
-              />
-              <LinearGradient
-                colors={['transparent', 'rgba(0,0,0,0.8)', 'rgba(0,0,0,1)']}
-                style={styles.cardGradient}
-              >
-                <View style={styles.infoContainer}>
-                  <Text style={styles.name}>{p.userId?.name}</Text>
-                  
-                  <View style={styles.detailRow}>
-                    <Ionicons name="school" size={18} color="#ce0000" />
-                    <Text style={styles.sub}>{p.university}</Text>
+    <ScrollView
+      style={s.page}
+      contentContainerStyle={[s.content, { flexDirection: desktop ? 'row' : 'column' }]}
+    >
+      <View
+        style={[
+          s.intro,
+          desktop ? { width: 410, paddingRight: 30 } : { width: '100%', marginBottom: 18 },
+        ]}
+      >
+        <Text style={s.eyebrow}>YOUR NEXT CHAPTER STARTS HERE</Text>
+        <Text style={[s.title, { fontSize: desktop ? 48 : 30 }]}>
+          Good company.{'\n'}A better home.
+        </Text>
+        <Text style={s.subtitle}>
+          Find someone who fits your rhythm. Get to know them, say hello and see where it goes.
+        </Text>
+        {desktop && (
+          <View style={s.note}>
+            <Ionicons name="sparkles-outline" size={22} color={p.ink} />
+            <Text style={s.noteText}>Shared routines make all the difference.</Text>
+          </View>
+        )}
+      </View>
+      <View style={{ width: Math.min(width - 48, 430), alignSelf: 'center' }}>
+        {loading ? (
+          <ActivityIndicator color={p.primary} style={{ padding: 50 }} />
+        ) : profile ? (
+          <>
+            <GestureDetector gesture={gesture}>
+              <Animated.View style={[s.card, animated]}>
+                <Image
+                  source={{ uri: profile.photo }}
+                  contentFit="contain"
+                  style={{
+                    width: '100%',
+                    height: Math.max(160, Math.min(desktop ? height - 465 : height * 0.34, 340)),
+                    backgroundColor: p.sage,
+                  }}
+                />
+                <View style={s.details}>
+                  <View style={s.row}>
+                    <Text style={s.name}>{profile.userId?.name}</Text>
+                    <Text style={s.price}>
+                      $ {profile.budget?.toLocaleString()}
+                      <Text style={s.month}> / mo</Text>
+                    </Text>
                   </View>
-
-                  <View style={styles.detailRow}>
-                    <Ionicons name="location" size={18} color="#ce0000" />
-                    <Text style={styles.sub}>{p.city}</Text>
+                  <Text style={s.city}>
+                    {profile.city}
+                    {profile.state ? ', ' + profile.state : ''}
+                  </Text>
+                  <Text style={s.university} numberOfLines={1}>
+                    {profile.university}
+                  </Text>
+                  <Text style={s.about} numberOfLines={2}>
+                    {profile.aboutMe}
+                  </Text>
+                  <View style={s.tags}>
+                    {profile.pets && <Text style={s.tag}>Pets welcome</Text>}
+                    <Text style={s.tag}>{profile.smoking ? 'Smoking friendly' : 'Smoke free'}</Text>
+                    {profile.furniture && <Text style={s.tag}>Has furniture</Text>}
                   </View>
-
-                  <View style={styles.budgetBadge}>
-                    <Text style={styles.budgetText}>${p.budget}/mo</Text>
-                  </View>
-                  
-                  <Text style={styles.about} numberOfLines={3}>{p.aboutMe}</Text>
                 </View>
-              </LinearGradient>
-            </Animated.View>
-          </GestureDetector>
-        ))}
-
-      {/* MATCH MODAL */}
-      <Modal visible={matchVisible} transparent animationType="fade">
-        <View style={styles.modal}>
-          <Animated.View style={[styles.matchBox, matchStyle]}>
-            <Text style={styles.heart}>❤️</Text>
-            <Text style={styles.match}>IT’S A MATCH!</Text>
-            
-            <Pressable 
-              style={styles.messageBtn} 
+              </Animated.View>
+            </GestureDetector>
+            <View style={s.actions}>
+              <View style={{ flex: 1 }}>
+                <Button
+                  title="Pass"
+                  secondary
+                  icon="close"
+                  disabled={busy}
+                  onPress={() => swipe('left')}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Button
+                  title="Like"
+                  icon="heart-outline"
+                  disabled={busy}
+                  onPress={() => swipe('right')}
+                />
+              </View>
+            </View>
+            <Text style={s.caption}>Swipe or choose below. A mutual like makes a match.</Text>
+          </>
+        ) : (
+          <EmptyState
+            title="You’re all caught up"
+            description={error || 'Explore more people or check back for new faces.'}
+            action={error ? 'Try again' : 'Explore profiles'}
+            onAction={error ? load : () => router.push('/(protected)/(tabs)/explore')}
+          />
+        )}
+        {!!error && !!profile && <Text style={s.error}>{error}</Text>}
+      </View>
+      <Modal
+        visible={!!matchId}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMatchId('')}
+      >
+        <View style={s.backdrop}>
+          <View style={s.match}>
+            <Ionicons name="heart" size={54} color={p.primary} />
+            <Text style={s.matchTitle}>You found a connection.</Text>
+            <Text style={s.subtitle}>
+              You both liked each other. A hello is a great place to start.
+            </Text>
+            <Button
+              title="Send a message"
               onPress={() => {
-                setMatchVisible(false)
-                if (activeMatchId) {
-                  router.push({
-                    pathname: '/(protected)/chat',
-                    params: { matchId: activeMatchId }
-                  } as any)
-                } else {
-                  router.push('/(protected)/(tabs)/matches' as any) 
-                }
+                const id = matchId
+                setMatchId('')
+                router.push({ pathname: '/(protected)/chat', params: { matchId: id } })
               }}
-            >
-              <Text style={styles.messageText}>Send a Message</Text>
-            </Pressable>
-
-            <Pressable onPress={() => setMatchVisible(false)}>
-              <Text style={styles.continue}>Keep Swiping</Text>
-            </Pressable>
-          </Animated.View>
+            />
+            <Button title="Keep exploring" secondary onPress={() => setMatchId('')} />
+          </View>
         </View>
       </Modal>
-    </View>
+    </ScrollView>
   )
 }
-
-/* ===================== STYLES ===================== */
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#020617',
-    justifyContent: 'center',
+const s = StyleSheet.create({
+  page: { flex: 1, backgroundColor: p.canvas },
+  content: {
+    flexGrow: 1,
     alignItems: 'center',
-  },
-  center: {
-    flex: 1,
-    backgroundColor: '#020617',
     justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 10,
-    color: '#9ca3af',
-  },
-  empty: {
-    color: '#9ca3af',
-    fontSize: 16,
-  },
-  card: {
-    position: 'absolute',
-    width: SCREEN_WIDTH * 0.92,
-    height: SCREEN_HEIGHT * 0.72,
-    backgroundColor: '#111827',
-    borderRadius: 32,
-    overflow: 'hidden',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 15,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  cardGradient: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: '60%',
     padding: 24,
-    justifyContent: 'flex-end',
-  },
-  infoContainer: {
     width: '100%',
+    maxWidth: 1100,
+    alignSelf: 'center',
   },
-  name: {
-    fontSize: 34,
-    fontWeight: '900',
-    color: '#fff',
-    marginBottom: 10,
-    letterSpacing: -0.5,
+  intro: {},
+  eyebrow: {
+    color: p.accent,
+    fontFamily: displayFont, fontSize: 10,
+    letterSpacing: 2,
+    fontWeight: '700',
+    marginBottom: 14,
   },
-  detailRow: {
+  title: { fontFamily: displayFont, fontWeight: '700', color: p.ink, lineHeight: undefined },
+  subtitle: { color: p.muted, fontFamily: displayFont, fontSize: 15, lineHeight: 24, marginTop: 16, marginBottom: 10 },
+  note: {
     flexDirection: 'row',
+    gap: 12,
     alignItems: 'center',
-    marginBottom: 8,
+    backgroundColor: p.sage,
+    padding: 18,
+    borderRadius: 16,
+    marginTop: 24,
   },
-  sub: {
-    fontSize: 17,
-    color: '#e5e7eb',
-    marginLeft: 10,
-    fontWeight: '600',
+  noteText: { color: p.ink, flex: 1, fontFamily: displayFont, fontSize: 13, lineHeight: 21 },
+  card: {
+    borderRadius: 24,
+    overflow: 'hidden',
+    backgroundColor: p.surface,
+    borderWidth: 1,
+    borderColor: p.line,
   },
-  budgetBadge: {
-    marginTop: 12,
-    backgroundColor: '#ce0000',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 12,
-    alignSelf: 'flex-start',
-    shadowColor: '#ce0000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
+  details: { padding: 20 },
+  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  name: { fontFamily: displayFont, fontWeight: '700', color: p.ink,  fontSize: 26, flex: 1 },
+  price: { color: p.ink, fontFamily: displayFont, fontSize: 15, fontWeight: '700' },
+  month: { fontFamily: displayFont, fontSize: 10, color: p.muted, fontWeight: '400' },
+  city: { color: p.accent, fontFamily: displayFont, fontSize: 13, marginTop: 6 },
+  university: { color: p.muted, fontFamily: displayFont, fontSize: 12, marginTop: 5 },
+  about: { color: p.muted, fontFamily: displayFont, fontSize: 14, lineHeight: 21, marginTop: 12 },
+  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 14 },
+  tag: {
+    backgroundColor: p.sage,
+    color: p.ink,
+    fontFamily: displayFont, fontSize: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 6,
   },
-  budgetText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  about: {
-    color: '#d1d5db',
-    fontSize: 15,
-    marginTop: 16,
-    lineHeight: 22,
-    fontWeight: '400',
-  },
-  modal: {
+  actions: { flexDirection: 'row', gap: 14, marginTop: 16 },
+  caption: { textAlign: 'center', color: p.muted, fontFamily: displayFont, fontSize: 11, marginTop: 12 },
+  error: { color: p.error, textAlign: 'center', paddingTop: 14 },
+  backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.9)',
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#09070BE6',
+    padding: 24,
   },
-  matchBox: {
-    alignItems: 'center',
-  },
-  heart: {
-    fontSize: 100,
-  },
-  match: {
-    fontSize: 36,
-    fontWeight: '900',
-    color: '#fff',
-    marginBottom: 30,
-    letterSpacing: 1.5,
-  },
-  continue: {
-    color: '#9ca3af',
-    fontSize: 16,
-    fontWeight: '500',
-    marginTop: 15,
-  },
-  messageBtn: {
-    backgroundColor: '#ce0000',
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    borderRadius: 32,
-    elevation: 4,
-    shadowColor: '#ce0000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-  },
-  messageText: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: '800',
-  },
+  match: { backgroundColor: p.canvas, maxWidth: 430, padding: 30, borderRadius: 28, gap: 15 },
+  matchTitle: { color: p.ink, fontFamily: displayFont, fontWeight: '700',  fontSize: 32 },
 })
-

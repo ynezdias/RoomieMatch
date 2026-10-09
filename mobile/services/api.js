@@ -16,11 +16,11 @@
 // export default API
 // //edited
 
-import axios from 'axios'
+import { create } from 'axios'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { API_URL } from './config'
 
-const API = axios.create({
+const API = create({
   baseURL: API_URL,
   timeout: 20000,
 })

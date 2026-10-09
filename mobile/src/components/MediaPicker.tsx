@@ -1,8 +1,9 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, Alert } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, ActivityIndicator } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import { useTheme } from '../context/ThemeContext';
+import { palette as p, displayFont } from '@/constants/design';
+import { FormNotice } from '@/components/app-ui';
 import { Ionicons } from '@expo/vector-icons';
 
 type MediaPickerProps = {
@@ -14,7 +15,16 @@ type MediaPickerProps = {
 };
 
 export default function MediaPicker({ visible, onClose, onPickImage, onPickVideo, onPickDocument }: MediaPickerProps) {
-    const { colors } = useTheme();
+    const [busy, setBusy] = useState('');
+    const [error, setError] = useState('');
+    const pending = useRef(false);
+    const run = async (label: string, action: () => Promise<void>) => {
+        if (pending.current) return;
+        pending.current = true; setBusy(label); setError('');
+        try { await action(); } catch { setError('Could not open the picker. Please try again.'); }
+        finally { pending.current = false; setBusy(''); }
+    };
+    const colors = { background: p.surface, border: p.line, secondary: p.sage, primary: p.primary, text: p.ink };
 
     const pickImage = async () => {
         const result = await ImagePicker.launchImageLibraryAsync({
@@ -61,7 +71,7 @@ export default function MediaPicker({ visible, onClose, onPickImage, onPickVideo
     const takePhoto = async () => {
         const perm = await ImagePicker.requestCameraPermissionsAsync();
         if (perm.status !== 'granted') {
-            Alert.alert('Permission needed', 'Camera permission is required');
+            setError('Camera permission is required. Please enable it in your device settings.');
             return;
         }
 
@@ -83,11 +93,12 @@ export default function MediaPicker({ visible, onClose, onPickImage, onPickVideo
             <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
                 <View style={[styles.container, { backgroundColor: colors.background, borderColor: colors.border }]}>
                     <View style={styles.grid}>
-                        <Option icon="camera" label="Camera" onPress={takePhoto} colors={colors} />
-                        <Option icon="image" label="Gallery" onPress={pickImage} colors={colors} />
-                        <Option icon="videocam" label="Video" onPress={pickVideo} colors={colors} />
-                        <Option icon="document" label="File" onPress={pickDocument} colors={colors} />
+                        <Option icon="camera" label="Camera" busy={busy === 'Camera'} disabled={!!busy} onPress={() => run('Camera', takePhoto)} colors={colors} />
+                        <Option icon="image" label="Gallery" busy={busy === 'Gallery'} disabled={!!busy} onPress={() => run('Gallery', pickImage)} colors={colors} />
+                        <Option icon="videocam" label="Video" busy={busy === 'Video'} disabled={!!busy} onPress={() => run('Video', pickVideo)} colors={colors} />
+                        <Option icon="document" label="File" busy={busy === 'File'} disabled={!!busy} onPress={() => run('File', pickDocument)} colors={colors} />
                     </View>
+                    <FormNotice message={error} />
                 </View>
             </TouchableOpacity>
         </Modal>
@@ -97,14 +108,16 @@ export default function MediaPicker({ visible, onClose, onPickImage, onPickVideo
 type OptionProps = {
     icon: React.ComponentProps<typeof Ionicons>['name'];
     label: string;
-    onPress: () => void;
-    colors: ReturnType<typeof useTheme>['colors'];
+    onPress: () => void | Promise<void>;
+    busy: boolean;
+    disabled: boolean;
+    colors: { background: string; border: string; secondary: string; primary: string; text: string };
 };
 
-const Option = ({ icon, label, onPress, colors }: OptionProps) => (
-    <TouchableOpacity style={styles.option} onPress={onPress}>
+const Option = ({ icon, label, onPress, colors, busy, disabled }: OptionProps) => (
+    <TouchableOpacity accessibilityRole="button" accessibilityLabel={label} aria-busy={busy} accessibilityState={{ busy, disabled }} disabled={disabled} style={styles.option} onPress={onPress}>
         <View style={[styles.iconBox, { backgroundColor: colors.secondary }]}>
-            <Ionicons name={icon} size={24} color={colors.primary} />
+            {busy ? <ActivityIndicator color={colors.primary} /> : <Ionicons name={icon} size={24} color={colors.primary} />}
         </View>
         <Text style={[styles.label, { color: colors.text }]}>{label}</Text>
     </TouchableOpacity>
@@ -119,7 +132,7 @@ const styles = StyleSheet.create({
     container: {
         borderTopLeftRadius: 20,
         borderTopRightRadius: 20,
-        padding: 20,
+        padding: 20, width: '100%', maxWidth: 540, alignSelf: 'center',
         borderWidth: 1,
         borderBottomWidth: 0,
     },
@@ -141,6 +154,6 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     label: {
-        fontSize: 12,
+        fontFamily: displayFont, fontSize: 12,
     }
 });

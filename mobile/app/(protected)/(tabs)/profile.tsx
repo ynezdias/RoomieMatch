@@ -1,232 +1,281 @@
-import { View, Text, TextInput, TouchableOpacity, Image, ScrollView, ActivityIndicator, Alert, Switch, Pressable, SafeAreaView } from 'react-native'
-import { useEffect, useState } from 'react'
-import { useAuth } from '../../../src/context/AuthContext'
-import { useTheme } from '../../../src/context/ThemeContext'
-import API from '../../../services/api'
-import { Ionicons } from '@expo/vector-icons'
+import {
+  View,
+  Text,
+  TextInput,
+  ScrollView,
+  Switch,
+  StyleSheet,
+  useWindowDimensions,
+} from 'react-native'
+import { useCallback, useEffect, useState } from 'react'
+import { Image } from 'expo-image'
 import * as ImagePicker from 'expo-image-picker'
-import { LinearGradient } from 'expo-linear-gradient'
 import Slider from '@react-native-community/slider'
-
+import { useAuth } from '@/src/context/AuthContext'
+import api from '@/services/api'
+import { uploadAsset } from '@/services/uploads'
+import { Button } from '@/components/app-ui'
+import { palette as p, displayFont } from '@/constants/design'
 export default function ProfileScreen() {
   const { logout, user } = useAuth()
-  const { colors, isDark } = useTheme()
-
-  const [aboutMe, setAboutMe] = useState('')
-  const [city, setCity] = useState('')
-  const [university, setUniversity] = useState('')
-  const [photo, setPhoto] = useState('')
-  const [budget, setBudget] = useState(1000)
-  const [smoking, setSmoking] = useState(false)
-  const [pets, setPets] = useState(false)
-  const [furniture, setFurniture] = useState(false)
+  const { width } = useWindowDimensions()
+  const [form, setForm] = useState({
+    aboutMe: '',
+    city: '',
+    university: '',
+    photo: '',
+    budget: 1000,
+    smoking: false,
+    pets: false,
+    furniture: false,
+  })
   const [loading, setLoading] = useState(false)
-
+  const [notice, setNotice] = useState('')
+  const [ready, setReady] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const loadProfile = useCallback(() => {
+    setNotice('')
+    return api
+      .get('/profile/me')
+      .then(({ data }: any) => {
+        if (data)
+          setForm((old) => ({
+            ...old,
+            ...Object.fromEntries(
+              Object.keys(old).map((key) => [key, data[key] ?? old[key as keyof typeof old]]),
+            ),
+          }))
+        setReady(true)
+      })
+      .catch(() => setNotice('Could not load your profile. Please try again.'))
+  }, [])
   useEffect(() => {
     loadProfile()
-  }, [])
-
-  const loadProfile = async () => {
+  }, [loadProfile])
+  const update = (key: keyof typeof form, value: any) =>
+    setForm((old) => ({ ...old, [key]: value }))
+  const pickPhoto = async () => {
     try {
-      const res = await API.get('/profile/me')
-      setAboutMe(res.data.aboutMe || '')
-      setCity(res.data.city || '')
-      setUniversity(res.data.university || '')
-      setPhoto(res.data.photo || '')
-      setBudget(res.data.budget || 1000)
-      setSmoking(res.data.smoking || false)
-      setPets(res.data.pets || false)
-      setFurniture(res.data.furniture || false)
-    } catch (err) {
-      console.log('PROFILE LOAD ERROR', err)
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.85,
+      })
+      if (result.canceled) return
+      setUploading(true)
+      setNotice('')
+      update('photo', await uploadAsset(result.assets[0]))
+      setNotice('Photo uploaded. Save your profile to keep this change.')
+    } catch (error: any) {
+      setNotice(error.message || 'Could not upload your photo.')
+    } finally {
+      setUploading(false)
     }
   }
-
-  const pickImage = async () => {
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.5,
-      base64: true,
-    });
-
-    if (!result.canceled) {
-      if (result.assets[0].base64) {
-        setPhoto(`data:image/jpeg;base64,${result.assets[0].base64}`);
-      } else {
-        setPhoto(result.assets[0].uri);
-      }
-    }
-  };
-
-  const saveProfile = async () => {
+  const save = async () => {
+    if (loading || !ready || uploading) return
+    const missing = [!form.city.trim() && 'city', !form.university.trim() && 'university or workplace'].filter(Boolean)
+    if (missing.length) { setNotice('Please enter your ' + missing.join(' and ') + '.'); return }
+    if (form.aboutMe.trim().length > 1000) { setNotice('About me must be 1,000 characters or fewer.'); return }
     setLoading(true)
+    setNotice('')
     try {
-      await API.put('/profile', {
-        aboutMe,
-        city,
-        university,
-        photo,
-        budget,
-        smoking,
-        pets,
-        furniture
-      })
-      Alert.alert('Success', 'Profile updated successfully!')
-    } catch (err) {
-      console.log('PROFILE SAVE ERROR', err)
-      Alert.alert('Error', 'Failed to save profile.')
+      await api.put('/profile', { ...form, city: form.city.trim(), university: form.university.trim(), aboutMe: form.aboutMe.trim() })
+      setNotice('Your profile has been saved.')
+    } catch (error: any) {
+      const data = error.response?.data
+      setNotice(error.response?.status === 401
+        ? 'Your session has expired. Log out and sign in again, then save your profile.'
+        : data?.msg || data?.message || (error.code === 'ECONNABORTED'
+          ? 'Saving timed out. Please try again; your edits are still here.'
+          : !error.response ? 'Could not reach the server. Check your connection and try again; your edits are still here.'
+          : 'Could not save your profile. Please try again.'))
     } finally {
       setLoading(false)
     }
   }
-
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
-        {/* PREMIUM HEADER */}
-        <View style={{ height: 320, position: 'relative' }}>
-          <Image
-            source={photo ? { uri: photo } : { uri: 'https://images.unsplash.com/photo-1511367461989-f85a21fda167?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80' }}
-            style={{ width: '100%', height: '100%', backgroundColor: colors.secondary }}
-          />
-          <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0.85)']}
-            style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 180, justifyContent: 'flex-end', padding: 24 }}
-          >
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-              <View>
-                <Text style={{ color: 'white', fontSize: 32, fontWeight: '900', letterSpacing: -0.5 }}>
-                  {user?.email?.split('@')[0] || 'My Profile'}
-                </Text>
-                <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 16, fontWeight: '600', marginTop: 4 }}>
-                  {city || 'Location not set'}
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={pickImage}
-                style={{ backgroundColor: colors.primary, padding: 12, borderRadius: 16, borderWidth: 3, borderColor: 'rgba(255,255,255,0.2)' }}
-              >
-                <Ionicons name="camera" size={24} color="white" />
-              </TouchableOpacity>
+    <ScrollView style={s.page} contentContainerStyle={s.content}>
+      <Text style={s.eyebrow}>MAKE YOURSELF AT HOME</Text>
+      <Text style={s.title}>A little more you.</Text>
+      <Text style={s.subtitle}>
+        Help your future roommate get to know the person behind the profile.
+      </Text>
+      <View style={[s.columns, { flexDirection: width >= 850 ? 'row' : 'column' }]}>
+        <View style={[s.identity, width >= 850 && { width: 270 }]}>
+          {form.photo ? (
+            <Image source={{ uri: form.photo }} style={s.avatar} contentFit="cover" />
+          ) : (
+            <View style={s.avatar}>
+              <Text style={s.initial}>{user?.email?.slice(0, 1).toUpperCase()}</Text>
             </View>
-          </LinearGradient>
-          
-          <SafeAreaView style={{ position: 'absolute', top: 0, left: 0, right: 0 }}>
-             <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 10 }}>
-                <TouchableOpacity onPress={logout} style={{ backgroundColor: 'rgba(0,0,0,0.3)', padding: 10, borderRadius: 12 }}>
-                  <Ionicons name="log-out-outline" size={24} color="#fff" />
-                </TouchableOpacity>
-             </View>
-          </SafeAreaView>
+          )}
+          <Text style={s.identityTitle}>Your profile photo</Text>
+          <Text style={s.hint}>A friendly face makes a great first impression.</Text>
+          <Button title="Change photo" secondary onPress={pickPhoto} loading={uploading} loadingLabel="Updating photo…" />
+          <View style={s.tip}>
+            <Text style={s.tipTitle}>Find your kind of home.</Text>
+            <Text style={s.hint}>
+              Share your routines, hobbies and what matters to you in a roommate.
+            </Text>
+          </View>
         </View>
-
-        <View style={{ padding: 20, marginTop: -20, backgroundColor: colors.background, borderTopLeftRadius: 30, borderTopRightRadius: 30 }}>
-          
-          {/* SECTION: ABOUT */}
-          <SectionTitle title="About Me" icon="person-outline" colors={colors} />
+        <View style={s.form}>
+          <Text style={s.section}>The essentials</Text>
+          <Text style={s.label}>About me</Text>
           <TextInput
-            placeholder="Tell us about yourself..."
-            placeholderTextColor="#64748b"
-            value={aboutMe}
-            onChangeText={setAboutMe}
+            accessibilityLabel="About me"
+            placeholder="Early riser? Weekend cook? Tell your story…"
+            placeholderTextColor={p.muted}
+            value={form.aboutMe}
+            onChangeText={(v) => update('aboutMe', v)}
             multiline
-            style={{ backgroundColor: colors.inputBackground, color: colors.text, borderRadius: 16, padding: 16, fontSize: 16, minHeight: 120, textAlignVertical: 'top', marginBottom: 24, borderWidth: 1, borderColor: colors.border }}
+            maxLength={1000}
+            style={[s.input, { minHeight: 120, textAlignVertical: 'top' }]}
           />
-
-          {/* SECTION: DETAILS */}
-          <SectionTitle title="Common Details" icon="business-outline" colors={colors} />
-          <View style={{ backgroundColor: colors.inputBackground, borderRadius: 20, padding: 4, marginBottom: 24, borderWidth: 1, borderColor: colors.border }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: colors.border }}>
-              <Ionicons name="location-outline" size={22} color={colors.primary} />
-              <TextInput
-                placeholder="City (e.g. New York, NY)"
-                placeholderTextColor="#64748b"
-                value={city}
-                onChangeText={setCity}
-                style={{ flex: 1, paddingVertical: 16, paddingHorizontal: 12, fontSize: 16, color: colors.text }}
+          <Text style={s.label}>City *</Text>
+          <TextInput
+            accessibilityLabel="City"
+            placeholder="City, State"
+            placeholderTextColor={p.muted}
+            value={form.city}
+            onChangeText={(v) => update('city', v)}
+            style={s.input}
+          />
+          <Text style={s.label}>University or workplace *</Text>
+          <TextInput
+            accessibilityLabel="University or workplace"
+            placeholder="Where you study or work"
+            placeholderTextColor={p.muted}
+            value={form.university}
+            onChangeText={(v) => update('university', v)}
+            style={s.input}
+          />
+          <Text style={s.hint}>* Required to help roommates find you.</Text>
+          <View style={s.divider} />
+          <Text style={s.section}>Your everyday preferences</Text>
+          <View style={s.row}>
+            <Text style={s.label}>Monthly budget</Text>
+            <Text style={s.price}>$ {Math.round(form.budget).toLocaleString()}</Text>
+          </View>
+          <Slider
+            accessibilityLabel="Monthly budget"
+            minimumValue={0}
+            maximumValue={5000}
+            step={50}
+            value={form.budget}
+            onValueChange={(v) => update('budget', v)}
+            minimumTrackTintColor={p.primary}
+            maximumTrackTintColor={p.line}
+            thumbTintColor={p.primary}
+            style={{ height: 40 }}
+          />
+          {(['smoking', 'pets', 'furniture'] as const).map((key) => (
+            <View style={s.preference} key={key}>
+              <Text style={s.preferenceLabel}>
+                {key === 'smoking'
+                  ? 'Smoking friendly'
+                  : key === 'pets'
+                    ? 'Pets welcome'
+                    : 'Bringing furniture'}
+              </Text>
+              <Switch
+                accessibilityLabel={key}
+                value={form[key]}
+                onValueChange={(v) => update(key, v)}
+                trackColor={{ false: p.line, true: p.primary }}
+                thumbColor={form[key] ? p.ink : '#fff'}
               />
             </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16 }}>
-              <Ionicons name="school-outline" size={22} color={colors.primary} />
-              <TextInput
-                placeholder="University / Workplace"
-                placeholderTextColor="#64748b"
-                value={university}
-                onChangeText={setUniversity}
-                style={{ flex: 1, paddingVertical: 16, paddingHorizontal: 12, fontSize: 16, color: colors.text }}
-              />
-            </View>
-          </View>
-
-          {/* SECTION: PREFERENCES */}
-          <SectionTitle title="Preferences" icon="options-outline" colors={colors} />
-          
-          <View style={{ backgroundColor: colors.inputBackground, borderRadius: 20, padding: 20, marginBottom: 24, borderWidth: 1, borderColor: colors.border }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>Monthly Budget</Text>
-                <Text style={{ fontSize: 18, fontWeight: '900', color: colors.primary }}>${Math.floor(budget)}</Text>
-            </View>
-            <Slider
-              style={{ width: '100%', height: 40 }}
-              minimumValue={0}
-              maximumValue={5000}
-              step={50}
-              value={budget}
-              onValueChange={setBudget}
-              minimumTrackTintColor={colors.primary}
-              maximumTrackTintColor={isDark ? '#334155' : '#e2e8f0'}
-              thumbTintColor={colors.primary}
-            />
-          </View>
-
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 30 }}>
-            <PreferenceItem icon="flame" label="Smoking" value={smoking} onToggle={setSmoking} activeColor="#ef4444" colors={colors} />
-            <PreferenceItem icon="paw" label="Pets" value={pets} onToggle={setPets} activeColor="#eab308" colors={colors} />
-            <PreferenceItem icon="bed" label="Furniture" value={furniture} onToggle={setFurniture} activeColor="#3b82f6" colors={colors} />
-          </View>
-
-          <TouchableOpacity
-            onPress={saveProfile}
-            disabled={loading}
-            style={{ backgroundColor: colors.primary, paddingVertical: 20, borderRadius: 20, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', shadowColor: colors.primary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8, marginBottom: 40 }}
-          >
-            {loading ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <>
-                <Text style={{ color: 'white', fontSize: 18, fontWeight: '800', marginRight: 10 }}>Save Changes</Text>
-                <Ionicons name="checkmark-done" size={24} color="white" />
-              </>
-            )}
-          </TouchableOpacity>
+          ))}
+          {!!notice && (
+            <Text accessibilityLiveRegion="polite" style={s.notice}>
+              {notice}
+            </Text>
+          )}
+          <View style={{ height: 20 }} />
+          {!ready && !!notice && <Button title="Try again" secondary onPress={loadProfile} />}
+          <Button
+            title="Save Profile"
+            onPress={save}
+            loadingLabel="Saving profile…"
+            loading={loading}
+            disabled={!ready || uploading}
+            icon="checkmark-outline"
+          />
+          <View style={{ height: 12 }} />
+          <Button title="Log out" secondary onPress={logout} loadingLabel="Signing out…" icon="log-out-outline" />
         </View>
-      </ScrollView>
-    </View>
+      </View>
+    </ScrollView>
   )
 }
-
-function SectionTitle({ title, icon, colors }: any) {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, marginLeft: 4 }}>
-      <Ionicons name={icon} size={20} color="#64748b" style={{ marginRight: 8 }} />
-      <Text style={{ fontSize: 14, fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: 1 }}>{title}</Text>
-    </View>
-  )
-}
-
-function PreferenceItem({ icon, label, value, onToggle, activeColor, colors }: any) {
-  return (
-    <View style={{ width: '30%', alignItems: 'center', backgroundColor: colors.inputBackground, paddingVertical: 16, paddingHorizontal: 10, borderRadius: 20, borderWidth: 1, borderColor: value ? activeColor + '40' : colors.border }}>
-      <Ionicons name={icon} size={26} color={value ? activeColor : '#64748b'} />
-      <Text style={{ color: colors.text, fontSize: 12, fontWeight: '700', marginVertical: 8 }}>{label}</Text>
-      <Switch
-        trackColor={{ false: '#334155', true: activeColor + '40' }}
-        thumbColor={value ? activeColor : '#f4f3f4'}
-        onValueChange={onToggle}
-        value={value}
-      />
-    </View>
-  )
-}
+const s = StyleSheet.create({
+  page: { flex: 1, backgroundColor: p.canvas },
+  content: { width: '100%', maxWidth: 1080, alignSelf: 'center', padding: 24, paddingBottom: 40 },
+  eyebrow: {
+    fontFamily: displayFont, fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 2,
+    color: p.accent,
+    marginBottom: 10,
+  },
+  title: { fontFamily: displayFont, fontWeight: '700', color: p.ink,  fontSize: 40 },
+  subtitle: { color: p.muted, fontFamily: displayFont, fontSize: 15, lineHeight: 23, marginTop: 10, marginBottom: 28 },
+  columns: { gap: 24 },
+  identity: { padding: 24, backgroundColor: p.sage, borderRadius: 24, alignItems: 'center' },
+  avatar: {
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: p.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  initial: { fontFamily: displayFont, fontWeight: '700',  fontSize: 64, color: p.ink },
+  identityTitle: { fontFamily: displayFont, fontSize: 18, fontWeight: '700', color: p.ink },
+  hint: { fontFamily: displayFont, fontSize: 14, color: p.muted, lineHeight: 22, textAlign: 'center', marginVertical: 12 },
+  tip: { marginTop: 24, paddingTop: 20, borderTopWidth: 1, borderColor: p.line },
+  tipTitle: { fontFamily: displayFont, fontWeight: '700', color: p.ink,  fontSize: 24, textAlign: 'center' },
+  form: {
+    flex: 1,
+    backgroundColor: p.surface,
+    borderRadius: 24,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: p.line,
+  },
+  section: { fontFamily: displayFont, fontSize: 20, fontWeight: '600', color: p.ink, marginBottom: 8 },
+  label: { color: p.ink, fontFamily: displayFont, fontSize: 13, fontWeight: '600', marginVertical: 12 },
+  input: {
+    borderWidth: 1,
+    borderColor: p.line,
+    borderRadius: 12,
+    backgroundColor: p.canvas,
+    padding: 14,
+    fontFamily: displayFont, fontSize: 15,
+    color: p.ink,
+  },
+  divider: { height: 1, backgroundColor: p.line, marginVertical: 24 },
+  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  price: { color: p.accent, fontWeight: '700', fontFamily: displayFont, fontSize: 20 },
+  preference: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderColor: p.line,
+  },
+  preferenceLabel: { fontFamily: displayFont, fontSize: 15, color: p.ink },
+  notice: {
+    color: p.ink,
+    backgroundColor: p.sage,
+    padding: 14,
+    borderRadius: 12,
+    marginVertical: 18,
+    lineHeight: 21,
+  },
+})

@@ -16,6 +16,7 @@ const messageSchema = new mongoose.Schema(
       type: String,
       default: '', // Can be empty if it's just media
     },
+    clientId: String,
     type: {
       type: String,
       enum: ['text', 'image', 'video', 'audio', 'file', 'system'],
@@ -36,5 +37,6 @@ const messageSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+messageSchema.index({ sender: 1, clientId: 1 }, { unique: true, partialFilterExpression: { clientId: { $type: 'string' } } });
 
 module.exports = mongoose.model('Message', messageSchema);

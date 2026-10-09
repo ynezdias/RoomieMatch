@@ -1,58 +1,35 @@
 const express = require('express');
-const router = express.Router();
-const cloudinary = require('cloudinary').v2;
+const crypto = require('node:crypto');
 const multer = require('multer');
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
-const authMiddleware = require('../middleware/authMiddleware'); // Verify path
+const cloudinary = require('../config/cloudinary');
+const auth = require('../middleware/authMiddleware');
+const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024, files: 1 } });
 
-// Config Cloudinary
-cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET
+router.post('/sign', auth, (req, res) => {
+  if (!['image', 'video', 'audio', 'file'].includes(req.body.type)) return res.status(400).json({ msg: 'Unsupported media type' });
+  const config = cloudinary.config();
+  if (!config.api_key || !config.api_secret || !config.cloud_name) return res.status(503).json({ msg: 'Uploads are not configured.' });
+  const filename = String(req.body.filename || 'upload').replace(/[^a-zA-Z0-9._-]/g, '_').slice(-100);
+  const params = { timestamp: Math.floor(Date.now() / 1000), folder: `roomiematch/${req.body.type}s`, public_id: `${crypto.randomUUID()}-${filename}` };
+  res.json({ params, signature: cloudinary.utils.api_sign_request(params, config.api_secret), apiKey: config.api_key, cloudName: config.cloud_name });
 });
 
-// Configure Multer Storage
-const storage = new CloudinaryStorage({
-    cloudinary: cloudinary,
-    params: async (req, file) => {
-        // Determine resource type based on mimetype
-        let resource_type = 'auto'; // default
-        let folder = 'roomiematch_uploads';
-
-        if (file.mimetype.startsWith('image/')) {
-            resource_type = 'image';
-            folder = 'roomiematch/images';
-        } else if (file.mimetype.startsWith('video/')) {
-            resource_type = 'video';
-            folder = 'roomiematch/videos';
-        } else if (file.mimetype.startsWith('audio/')) {
-            resource_type = 'video'; // Cloudinary treats audio as video/raw usually, or use 'auto'
-            folder = 'roomiematch/audio';
-        }
-
-        return {
-            folder: folder,
-            resource_type: resource_type,
-            public_id: `${Date.now()}-${file.originalname.replace(/\.[^/.]+$/, "")}`, // Remove extension for public_id
-        };
-    },
+router.post('/', auth, upload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+  const mime = req.file.mimetype;
+  const folder = mime.startsWith('image/') ? 'roomiematch/images'
+    : mime.startsWith('video/') ? 'roomiematch/videos'
+    : mime.startsWith('audio/') ? 'roomiematch/audio' : 'roomiematch/files';
+  const filename = req.file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-100);
+  const result = await new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream({
+      folder,
+      resource_type: 'auto',
+      public_id: crypto.randomUUID() + '-' + filename,
+    }, (err, value) => err ? reject(err) : resolve(value));
+    stream.end(req.file.buffer);
+  });
+  res.json({ url: result.secure_url, filename: result.public_id, mimetype: mime });
 });
-
-const upload = multer({ storage: storage });
-
-// Route: POST /api/upload
-router.post('/', authMiddleware, upload.single('file'), (req, res) => {
-    if (!req.file) {
-        return res.status(400).json({ error: 'No file uploaded' });
-    }
-
-   // req.file.path contains the Cloudinary URL
-    res.json({
-        url: req.file.path,
-        filename: req.file.filename,
-        mimetype: req.file.mimetype
-    });
-});
-
 module.exports = router;

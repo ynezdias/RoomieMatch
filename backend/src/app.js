@@ -15,15 +15,16 @@ app.use((req, res, next) => {
 
 /* ===== MIDDLEWARE ===== */
 const allowedOrigins = process.env.CORS_ORIGINS?.split(',').map(origin => origin.trim()).filter(Boolean);
-if (process.env.NODE_ENV === 'production' && !allowedOrigins?.length) {
+if (process.env.NODE_ENV === 'production' && !process.env.VERCEL && !allowedOrigins?.length) {
   throw new Error('CORS_ORIGINS must contain the deployed frontend origin in production.');
 }
-app.use(cors({ origin: allowedOrigins || true }));
+app.use(cors({ origin: allowedOrigins || process.env.NODE_ENV !== 'production' }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 /* ===== ROUTES ===== */
 app.use('/api', (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store');
   if (mongoose.connection.readyState !== 1) {
     return res.status(503).json({
       msg: 'Database unavailable. Please try again after the database connection is restored.',
@@ -49,11 +50,13 @@ app.get('/health', (req, res) => {
   const connected = mongoose.connection.readyState === 1;
   res.status(connected ? 200 : 503).json({ database: connected ? 'connected' : 'unavailable' });
 });
+app.get('/api/health', (req, res) => res.json({ database: 'connected' }));
 
 app.use((err, req, res, next) => {
   if (res.headersSent) return next(err);
   console.error('Request failed:', err.name);
   if (err.code === 11000) return res.status(409).json({ msg: 'This email is already registered.' });
+  if (err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ msg: 'Files must be 25 MB or smaller.' });
   if (err.type === 'entity.parse.failed') return res.status(400).json({ msg: 'Invalid JSON request.' });
   res.status(500).json({ msg: 'Unable to complete the request. Please try again.' });
 });

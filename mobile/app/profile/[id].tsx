@@ -1,3 +1,4 @@
+import { displayFont } from '@/constants/design'
 import {
   View,
   Text,
@@ -66,7 +67,7 @@ export default function ProfileDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0b0b0f',
+    backgroundColor: '#100E11',
   },
   back: {
     position: 'absolute',
@@ -80,39 +81,39 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: 340,
-    backgroundColor: '#1f2937',
+    backgroundColor: '#3A3038',
   },
   card: {
     marginTop: -30,
-    backgroundColor: '#0b0b0f',
+    backgroundColor: '#100E11',
     borderTopLeftRadius: 26,
     borderTopRightRadius: 26,
     padding: 20,
   },
   name: {
-    fontSize: 26,
+    fontFamily: displayFont, fontSize: 26,
     fontWeight: '800',
     color: '#fff',
   },
   meta: {
-    fontSize: 14,
-    color: '#9ca3af',
+    fontFamily: displayFont, fontSize: 14,
+    color: '#AEA6AB',
     marginTop: 4,
   },
   divider: {
     height: 1,
-    backgroundColor: '#1f2937',
+    backgroundColor: '#3A3038',
     marginVertical: 16,
   },
   section: {
-    fontSize: 16,
+    fontFamily: displayFont, fontSize: 16,
     fontWeight: '700',
-    color: '#e5e7eb',
+    color: '#F5EEEE',
     marginBottom: 6,
   },
   about: {
-    fontSize: 14,
-    color: '#d1d5db',
+    fontFamily: displayFont, fontSize: 14,
+    color: '#AEA6AB',
     lineHeight: 22,
   },
 })

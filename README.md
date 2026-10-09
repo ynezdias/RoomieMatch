@@ -4,6 +4,11 @@ RoomieMatch helps people find roommates through profiles, Explore search, swipe 
 
 The current app has a responsive red-and-black dark theme, modern sans-serif typography, and layouts for phones and laptops. The `Model/` notebooks are offline analysis; they are not connected to a deployed AI recommendation service. Maps, market charts, identity verification, and room tours are not currently implemented.
 
+<img width="1197" height="746" alt="image" src="https://github.com/user-attachments/assets/940c6c71-38b9-4e4d-8b05-2fc4cc6161f3" />
+<img width="1712" height="922" alt="image" src="https://github.com/user-attachments/assets/bc197908-a99d-4b1a-8e7a-e11ec11b7442" />
+<img width="1711" height="917" alt="image" src="https://github.com/user-attachments/assets/edb2cf9f-39db-437e-885f-ba59b1b2a048" />
+<img width="1703" height="922" alt="image" src="https://github.com/user-attachments/assets/53bc97f6-4230-44f7-9530-2974db2cd044" />
+
 ## Features
 
 - Email/password registration and login, inline wrong-password feedback, and show/hide password controls.
